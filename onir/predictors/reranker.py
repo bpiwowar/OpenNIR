@@ -1,48 +1,39 @@
 import os
 import json
 import torch
+from experimaestro import config, param
 import onir
 from onir import util, spec, predictors, datasets
 from onir.interfaces import trec, plaintext
+from onir.rankers import Ranker
+from onir.util import Device, DEFAULT_DEVICE
 
+@param('batch_size', default=64)
+@param('device', type=Device, default=DEFAULT_DEVICE)
+@param('preload', default=False)
+@param('run_threshold', default=0)
+@param('measures', default='map,ndcg,p@20,ndcg@20,mrr')
+@param('source', default='run')
 
-@predictors.register('reranker')
+@param('ranker', type=Ranker)
+@config()
 class Reranker(predictors.BasePredictor):
     name = None
 
-    @staticmethod
-    def default_config():
-        return {
-            'batch_size': 64,
-            'gpu': True,
-            'gpu_determ': True,
-            'preload': False,
-            'run_threshold': 0,
-            'measures': 'map,ndcg,p@20,ndcg@20,mrr',
-            'source': 'run'
-        }
-
-    def __init__(self, config, ranker, trainer, dataset, vocab, logger, random):
-        self.config = config
-        self.ranker = ranker
-        self.trainer = trainer
-        self.dataset = dataset
-        self.logger = logger
-        self.vocab = vocab
-        self.random = random
-        self.input_spec = ranker.input_spec()
+    def __initialize__(self):
+        self.input_spec = self.ranker.input_spec()
 
     def _iter_batches(self, device):
         fields = set(self.input_spec['fields']) | {'query_id', 'doc_id'}
         it = datasets.record_iter(self.dataset,
                                   fields=fields,
-                                  source=self.config['source'],
-                                  run_threshold=self.config['run_threshold'],
+                                  source=self.source,
+                                  run_threshold=self.run_threshold,
                                   minrel=None,
                                   shuf=False,
                                   random=self.random,
                                   inf=False)
-        for batch_items in util.chunked(it, self.config['batch_size']):
+        for batch_items in util.chunked(it, self.batch_size):
             batch = {}
             for record in batch_items:
                 for k, seq in record.items():
@@ -57,22 +48,20 @@ class Reranker(predictors.BasePredictor):
         while True:
             yield batches
 
-    def _reload_batches(self, device):
+    def _reload_batches(self):
         while True:
-            it = self._iter_batches(device)
+            it = self._iter_batches()
             yield it
 
     def pred_ctxt(self):
-        device = util.device(self.config, self.logger)
-
-        if self.config['preload']:
-            datasource = self._preload_batches(device)
+        if self.preload:
+            datasource = self._preload_batches()
         else:
-            datasource = self._reload_batches(device)
+            datasource = self._reload_batches()
 
-        return PredictorContext(self, datasource, device)
+        return PredictorContext(self, datasource, self.device)
 
-    def iter_scores(self, ranker, datasource, device):
+    def iter_scores(self, ranker, datasource):
         if ranker.name == 'trivial' and not ranker.config['neg'] and not ranker.config['qsum'] and not ranker.config['max']:
             for qid, values in self.dataset.run().items():
                 for did, score in values.items():
@@ -91,12 +80,12 @@ class Reranker(predictors.BasePredictor):
             total = None
             if isinstance(ds, list):
                 total = sum(len(d['query_id']) for d in ds)
-            elif self.config['source'] == 'run':
-                if self.config['run_threshold'] > 0:
-                    total = sum(min(len(v), self.config['run_threshold']) for v in self.dataset.run().values())
+            elif self.source == 'run':
+                if self.run_threshold > 0:
+                    total = sum(min(len(v), self.run_threshold) for v in self.dataset.run().values())
                 else:
                     total = sum(len(v) for v in self.dataset.run().values())
-            elif self.config['source'] == 'qrels':
+            elif self.source == 'qrels':
                 total = sum(len(v) for v in self.dataset.qrels().values())
             with self.logger.pbar_raw(total=total, desc='pred', quiet=True) as pbar:
                 for batch in util.background(ds):

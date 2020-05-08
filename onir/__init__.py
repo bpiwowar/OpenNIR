@@ -1,5 +1,6 @@
 import sys
 import bdb
+from experimaestro import Identifier
 
 logger = None
 
@@ -19,5 +20,6 @@ sys.excepthook = handle_exception
 from onir import log
 
 logger = log.Logger('onir')
+_onir = Identifier("onir")
 
 from onir import util, injector, metrics, datasets, interfaces, rankers, config, trainers, predictors, vocab, pipelines

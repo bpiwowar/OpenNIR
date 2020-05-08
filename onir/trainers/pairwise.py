@@ -1,46 +1,41 @@
 import sys
 import torch
 import torch.nn.functional as F
+from experimaestro import argument, config, Choices
 import onir
-from onir import trainers, spec, util
+from onir import trainers, spec, util, _onir
 
-
-@trainers.register('pairwise')
+@argument(
+    "lossfn", type=str, default="softmax", checker=Choices(['softmax', 'cross_entropy', 'hinge'])
+)  
+@argument("pos_source", type=str, default="intersect", checker=Choices(['intersect', 'qrels']))
+@argument("neg_source", type=str, default="neg_source", checker=Choices(['run', 'qrels', 'union']))
+@argument("sampling", type=str, default="query", checker=Choices(['query', 'qrel']))
+@argument("pos_minrel", default=1)
+@argument("unjudged_rel", default=0)
+@argument("num_neg", default=1)
+@argument("margin", default=0.0)
+@config(_onir.trainer.pairwise)
 class PairwiseTrainer(trainers.Trainer):
-    @staticmethod
-    def default_config():
-        result = trainers.Trainer.default_config()
-        result.update({
-            'lossfn': onir.config.Choices(['softmax', 'cross_entropy', 'hinge']),
-            'pos_source': onir.config.Choices(['intersect', 'qrels']),
-            'neg_source': onir.config.Choices(['run', 'qrels', 'union']),
-            'sampling': onir.config.Choices(['query', 'qrel']),
-            'pos_minrel': 1,
-            'unjudged_rel': 0,
-            'num_neg': 1,
-            'margin': 0.,
-        })
-        return result
-
-    def __init__(self, config, ranker, logger, train_ds, vocab, random):
+    def __init__(self, logger, train_ds, vocab, random):
         super().__init__(config, ranker, vocab, train_ds, logger, random)
         self.loss_fn = {
             'softmax': self.softmax,
             'cross_entropy': self.cross_entropy,
             'hinge': self.hinge
-        }[config['lossfn']]
+        }[self.lossfn]
         self.dataset = train_ds
         self.input_spec = ranker.input_spec()
         self.iter_fields = self.input_spec['fields'] | {'runscore'}
         self.train_iter_core = onir.datasets.pair_iter(
             train_ds,
             fields=self.iter_fields,
-            pos_source=self.config['pos_source'],
-            neg_source=self.config['neg_source'],
-            sampling=self.config['sampling'],
-            pos_minrel=self.config['pos_minrel'],
-            unjudged_rel=self.config['unjudged_rel'],
-            num_neg=self.config['num_neg'],
+            pos_source=self.pos_source,
+            neg_source=self.neg_source,
+            sampling=self.sampling,
+            pos_minrel=self.pos_minrel,
+            unjudged_rel=self.unjudged_rel,
+            num_neg=self.num_neg,
             random=self.random,
             inf=True)
         self.train_iter = util.background(self.iter_batches(self.train_iter_core))

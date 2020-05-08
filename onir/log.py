@@ -57,9 +57,9 @@ class Logger:
         if self.name not in _logger_cache:
             logger = logging.getLogger(self.name)
             logger.addHandler(handler)
-            file_handler = logging.FileHandler(util.path_log())
-            file_handler.setFormatter(file_formatter)
-            logger.addHandler(file_handler)
+            # file_handler = logging.FileHandler(util.path_log())
+            # file_handler.setFormatter(file_formatter)
+            # logger.addHandler(file_handler)
             logger.propagate = False
             logger.setLevel(logging.DEBUG)
             _logger_cache[self.name] = logger

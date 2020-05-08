@@ -1,28 +1,22 @@
+from experimaestro import config, param
 import torch
 from torch import nn
+from onir.random import Random
 
-
+@param("qlen", default=20)
+@param("dlen", default=2000)
+@param("add_runscore", default=False)
+@param("random", type=Random)
+@config()
 class Ranker(nn.Module):
-    name = None
-
-    @staticmethod
-    def default_config():
-        return {
-            'qlen': 20,
-            'dlen': 2000,
-            'add_runscore': False
-        }
-
-    def __init__(self, config, random):
-        super().__init__()
-        self.config = config
-        self.random = random
-        seed = random.randint((2**32)-1)
+    def __initialize__(self):
+        nn.Module.__init__(self)
+        seed = self.random.state.randint((2**32)-1)
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-        if self.config.get('add_runscore'):
+        if self.add_runscore:
             self.runscore_alpha = torch.nn.Parameter(torch.full((1, ), -1.))
 
     def input_spec(self):
@@ -31,12 +25,12 @@ class Ranker(nn.Module):
         # 'max': query/document can be at most this length
         result = {
             'fields': set(),
-            'qlen': self.config['qlen'],
+            'qlen': self.qlen,
             'qlen_mode': 'strict',
-            'dlen': self.config['dlen'],
+            'dlen': self.dlen,
             'dlen_mode': 'strict'
         }
-        if self.config.get('add_runscore'):
+        if self.add_runscore:
             result['fields'].add('runscore')
         return result
 
@@ -44,15 +38,12 @@ class Ranker(nn.Module):
         result = self._forward(**inputs)
         if len(result.shape) == 2 and result.shape[1] == 1:
             result = result.reshape(result.shape[0])
-        if self.config.get('add_runscore'):
+        if self.add_runscore:
             alpha = torch.sigmoid(self.runscore_alpha)
             result = alpha * result + (1 - alpha) * inputs['runscore']
         return result
 
     def _forward(self, **inputs):
-        raise NotImplementedError
-
-    def path_segment(self):
         raise NotImplementedError
 
     def save(self, path):

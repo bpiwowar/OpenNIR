@@ -75,6 +75,8 @@ class _BlockingTeeControllerThread(Thread):
         while True:
             try:
                 self.value = next(self._it)
+            except StopIteration:
+                self.value = None
             except Exception as ex:
                 self.ex = ex
                 raise

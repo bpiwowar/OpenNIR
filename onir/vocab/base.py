@@ -1,6 +1,6 @@
 import re
 from torch import nn
-
+from experimaestro import config, param
 
 class VocabEncoder(nn.Module):
     """
@@ -67,22 +67,14 @@ class VocabEncoder(nn.Module):
         return self.enc_spec()['static']
 
 
+@config()
 class Vocab:
     """
     Represents a vocabulary and corresponding neural encoding technique (e.g., embedding)
     """
     name = None
-
-    @staticmethod
-    def default_config():
-        """
-        Configuration for vocabulary
-        """
-        return {}
-
-    def __init__(self, config, logger):
-        self.config = config
-        self.logger = logger
+    def __initialize__(self):
+        pass
 
     def tokenize(self, text):
         """

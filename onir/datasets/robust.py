@@ -1,8 +1,10 @@
 import os
 from pytools import memoize_method
-from onir import datasets, util, indices
+from experimaestro import task, param, pathargument
+from experimaestro_ir.anserini import Index as AnseriniIndex
+from datamaestro_text.data.trec import TrecAdhocAssessments, TrecAdhocTopics
+from onir import datasets, util, indices, vocab
 from onir.interfaces import trec, plaintext
-
 
 # from <https://github.com/faneshion/DRMM/blob/9d348640ef8a56a8c1f2fa0754fe87d8bb5785bd/NN4IR.cpp>
 FOLDS = {
@@ -20,39 +22,39 @@ for i in range(len(FOLDS)):
     FOLDS['va' + _FOLD_IDS[i]] = FOLDS[_FOLD_IDS[i-1]]
 FOLDS['all'] = _ALL
 
+@param('subset', default='all')
+@param('ranktopk', default=100)
 
-_FILES = {
-    'index': dict(url='https://git.uwaterloo.ca/jimmylin/anserini-indexes/raw/master/index-robust04-20191213.tar.gz', expected_md5="15f3d001489c97849a010b0a4734d018"),
-    'queries': dict(url='https://trec.nist.gov/data/robust/04.testset.gz', expected_md5="5eac3d774a2f87da61c08a94f945beff"),
-    'qrels': dict(url='https://trec.nist.gov/data/robust/qrels.robust2004.txt', expected_md5="123c2a0ba2ec31178cb1050995dcfdfa"),
-}
+@param('anserini_index', type=AnseriniIndex)
+@param('queries', type=TrecAdhocTopics)
+@param('assessments', type=TrecAdhocAssessments)
 
-
-@datasets.register('robust')
+@pathargument("path_anserini", "anserini")
+@pathargument("path_anserini_porter", "anserini.porter")
+@pathargument("path_docs", "docs.sqlite")
+@pathargument("path_folds", "folds")
+@pathargument("path_topics", "topics")
+@task()
 class RobustDataset(datasets.IndexBackedDataset):
     """
     Interface to the TREC Robust 2004 dataset.
      > Ellen M. Voorhees. 2004. Overview of TREC 2004. In TREC.
     """
-    DUA = """Will begin downloading Robust04 dataset.
-Please confirm you agree to the authors' data usage stipulations found at
-https://trec.nist.gov/data/cd45/index.html"""
+
+    def __initialize__(self):
+        datasets.IndexBackedDataset.__initialize__(self)
+        self.index = indices.AnseriniIndex(self.path_anserini, stemmer='none')
+        self.index_stem = indices.AnseriniIndex(self.path_anserini_porter, stemmer='porter')
+        self.doc_store = indices.SqliteDocstore(self.path_docs)
 
     @staticmethod
-    def default_config():
-        result = datasets.IndexBackedDataset.default_config()
-        result.update({
-            'subset': 'all',
-            'ranktopk': 100
-        })
-        return result
-
-    def __init__(self, config, logger, vocab):
-        super().__init__(config, logger, vocab)
-        base_path = util.path_dataset(self)
-        self.index = indices.AnseriniIndex(os.path.join(base_path, 'anserini'), stemmer='none')
-        self.index_stem = indices.AnseriniIndex(os.path.join(base_path, 'anserini.porter'), stemmer='porter')
-        self.doc_store = indices.SqliteDocstore(os.path.join(base_path, 'docs.sqllite'))
+    def prepare(vocab: vocab.Vocab, **kwargs):
+        from datamaestro import prepare_dataset
+        index = prepare_dataset("ca.uwaterloo.jimmylin.anserini.robust04")
+        qrels = prepare_dataset("gov.nist.trec.adhoc.robust.2004.qrels")
+        topics = prepare_dataset("gov.nist.trec.adhoc.robust.2004.topics")
+        
+        return RobustDataset(anserini_index=index, assessments=qrels, queries=topics, vocab=vocab, **kwargs)
 
     def _get_index(self, record):
         return self.index
@@ -76,45 +78,34 @@ https://trec.nist.gov/data/cd45/index.html"""
 
     @memoize_method
     def _load_qrels(self, subset, fmt):
-        return trec.read_qrels_fmt(os.path.join(util.path_dataset(self), f'{subset}.qrels'), fmt)
+        return trec.read_qrels_fmt(self.assessments.path, fmt)
 
     @memoize_method
     def _load_topics(self):
         result = {}
-        for item, qid, text in plaintext.read_tsv(os.path.join(util.path_dataset(self), 'topics.txt')):
+        for item, qid, text in plaintext.read_tsv(str(self.path_topics)):
             if item == 'topic':
                 result[qid] = text
         return result
 
-    def init(self, force=False):
-        base_path = util.path_dataset(self)
+    def execute(self):
         idxs = [self.index, self.index_stem, self.doc_store]
-        self._init_indices_parallel(idxs, self._init_iter_collection(), force)
-
-        qrels_file = os.path.join(base_path, 'qrels.robust2004.txt')
-        if (force or not os.path.exists(qrels_file)) and self._confirm_dua():
-            util.download(**_FILES['qrels'], file_name=qrels_file)
+        self._init_indices_parallel(idxs, self._init_iter_collection(), True)
 
         for fold in FOLDS:
-            fold_qrels_file = os.path.join(base_path, f'{fold}.qrels')
-            if (force or not os.path.exists(fold_qrels_file)):
-                all_qrels = trec.read_qrels_dict(qrels_file)
-                fold_qrels = {qid: dids for qid, dids in all_qrels.items() if qid in FOLDS[fold]}
-                trec.write_qrels_dict(fold_qrels_file, fold_qrels)
+            fold_qrels_file = self.path_folds.with_suffix(f".{fold}.qrels")
+            with self.assessments.path.open("r") as fp:
+                all_qrels = trec.read_qrels_dict(fp)
+            fold_qrels = {qid: dids for qid, dids in all_qrels.items() if qid in FOLDS[fold]}
+            trec.write_qrels_dict(fold_qrels_file, fold_qrels)
 
-        query_file = os.path.join(base_path, 'topics.txt')
-        if (force or not os.path.exists(query_file)) and self._confirm_dua():
-            query_file_stream = util.download_stream(**_FILES['queries'], encoding='utf8')
-            with util.finialized_file(query_file, 'wt') as f:
-                plaintext.write_tsv(f, trec.parse_query_format(query_file_stream))
+        with util.finialized_file(self.path_topics, 'wt') as f, self.queries.path.open("rt") as query_file_stream:
+            plaintext.write_tsv(f, trec.parse_query_format(query_file_stream))
 
     def _init_iter_collection(self):
         # Using the trick here from capreolus, pulling document content out of public index:
         # <https://github.com/capreolus-ir/capreolus/blob/d6ae210b24c32ff817f615370a9af37b06d2da89/capreolus/collection/robust04.yaml#L15>
-        with util.download_tmp(**_FILES['index']) as f:
-            fd = f'{f.name}.d'
-            util.extract_tarball(f.name, fd, self.logger, reset_permissions=True)
-            index = indices.AnseriniIndex(f'{fd}/index-robust04-20191213')
-            for did in self.logger.pbar(index.docids(), desc='documents'):
-                raw_doc = index.get_raw(did)
-                yield indices.RawDoc(did, raw_doc)
+        index = indices.AnseriniIndex(self.anserini_index.path)
+        for did in self.logger.pbar(index.docids(), desc='documents'):
+            raw_doc = index.get_raw(did)
+            yield indices.RawDoc(did, raw_doc)

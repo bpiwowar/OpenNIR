@@ -3,27 +3,22 @@ import functools
 import contextlib
 from glob import glob
 import pickle
+from experimaestro import param, config
+from experimaestro_ir.anserini import IndexCollection
 from onir import datasets, util
 from onir.interfaces import trec
 
-
+@param('rankfn', default='bm25')
+@param('subset', default='all')
+@param('ranktopk', default=1000)
+@config()
 class IndexBackedDataset(datasets.Dataset):
     """
     Dataset base class for using an index as the source of the data.
     """
 
-    @staticmethod
-    def default_config():
-        result = datasets.Dataset.default_config()
-        result.update({
-            'rankfn': 'bm25',
-            'subset': 'all',
-            'ranktopk': 1000
-        })
-        return result
-
-    def __init__(self, config, logger, vocab):
-        super().__init__(config, logger, vocab)
+    def __initialize__(self):
+        super().__initialize__()
         self.run_cache = {}
 
     def path_segment(self):
@@ -39,16 +34,16 @@ class IndexBackedDataset(datasets.Dataset):
 
     def run(self, fmt='dict'):
         return self._load_run_base(self._get_index_for_batchsearch(),
-                                   self.config['subset'],
-                                   self.config['rankfn'],
-                                   self.config['ranktopk'],
+                                   self.subset,
+                                   self.rankfn,
+                                   self.ranktopk,
                                    fmt=fmt)
 
     def run_dict(self):
         return self._load_run_base(self._get_index_for_batchsearch(),
-                                   self.config['subset'],
-                                   self.config['rankfn'],
-                                   self.config['ranktopk'],
+                                   self.subset,
+                                   self.rankfn,
+                                   self.ranktopk,
                                    fmt='dict')
 
     def all_doc_ids(self):
@@ -58,7 +53,7 @@ class IndexBackedDataset(datasets.Dataset):
         return self._get_docstore().num_docs()
 
     def all_query_ids(self):
-        yield from self._load_queries_base(self.config['subset']).keys()
+        yield from self._load_queries_base(self.subset).keys()
 
     def num_queries(self):
         return sum(1 for _ in self.all_query_ids())
@@ -122,7 +117,7 @@ class IndexBackedDataset(datasets.Dataset):
             if force or not index.built():
                 needs_docs.append(index)
 
-        if needs_docs and self._confirm_dua():
+        if needs_docs:
             with contextlib.ExitStack() as stack:
                 doc_iters = util.blocking_tee(doc_iter, len(needs_docs))
                 for idx, it in zip(needs_docs, doc_iters):
@@ -149,7 +144,7 @@ class IndexBackedDataset(datasets.Dataset):
         return "en"
 
     def _query_rawtext(self, record):
-        return self._load_queries_base(self.config['subset'])[record['query_id']]
+        return self._load_queries_base(self.subset)[record['query_id']]
 
     def _query_text(self, record):
         return tuple(self.vocab.tokenize(record['query_rawtext']))
@@ -169,7 +164,7 @@ class IndexBackedDataset(datasets.Dataset):
 
     def _query_score(self, record):
         index = self._get_index(record)
-        return index.get_query_doc_scores(record['query_text'], record['doc_id'], self.config['rankfn'])[1]
+        return index.get_query_doc_scores(record['query_text'], record['doc_id'], self.rankfn)[1]
 
     def _doc_rawtext(self, record):
         docstore = self._get_docstore()
@@ -193,7 +188,7 @@ class IndexBackedDataset(datasets.Dataset):
 
     def _runscore(self, record):
         index = self._get_index(record)
-        return index.get_query_doc_scores(record['query_text'], record['doc_id'], self.config['rankfn'])[0]
+        return index.get_query_doc_scores(record['query_text'], record['doc_id'], self.rankfn)[0]
 
     def _relscore(self, record):
         return float(self.qrels('dict').get(record['query_id'], {}).get(record['doc_id'], -999))

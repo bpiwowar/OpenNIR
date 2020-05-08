@@ -7,10 +7,10 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='OpenNIR',
-    description='OpenNIR: A Complete Neural Ad-Hoc Ranking Pipeline',
-    author="Sean MacAvaney",
-    author_email="sean@ir.cs.georgetown.edu",
+    name='OpenNIR_XPM',
+    description='OpenNIR: A Complete Neural Ad-Hoc Ranking Pipeline (Experimaestro version)',
+    author="Sean MacAvaney (modified by Benjamin Piwowarski)",
+    author_email="b@piwowarski.fr",
     long_description=long_description,
     long_description_content_type='text/markdown',
     version='0.1.0',
@@ -18,7 +18,7 @@ setup(
     url="http://opennir.net/",
     project_urls={
         "Documentation": "http://opennir.net/",
-        "Source": "https://github.com/Georgetown-IR-Lab/OpenNIR"
+        "Source": "https://github.com/bpiwowar/OpenNIR"
     },
     install_requires=[
     ],

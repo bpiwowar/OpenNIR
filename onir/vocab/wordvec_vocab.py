@@ -3,64 +3,67 @@ import pickle
 import hashlib
 import numpy as np
 import torch
+from pathlib import Path
 from torch import nn
-from onir import vocab, util, config
+from experimaestro import config, param, cache
+from onir import vocab, util
+from onir.random import Random
 from onir.interfaces import wordvec
+from datamaestro_text.data.embeddings import WordEmbeddings
 
+# TODO: add sources to datamaestro
+# _SOURCES = {
+#     'fasttext': {
+#         'wiki-news-300d-1M': wordvec.zip_handler('https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip'),
+#         'crawl-300d-2M': wordvec.zip_handler('https://dl.fbaipublicfiles.com/fasttext/vectors-english/crawl-300d-2M.vec.zip'),
+#     },
+#     'glove': {
+#         'cc-42b-300d': wordvec.zip_handler('http://nlp.stanford.edu/data/glove.42B.300d.zip', ext='.txt'),
+#         'cc-840b-300d': wordvec.zip_handler('http://nlp.stanford.edu/data/glove.840B.300d.zip', ext='.txt')
+#     },
+#     'convknrm': {
+#         'knrm-bing': wordvec.convknrm_handler('http://boston.lti.cs.cmu.edu/appendices/WSDM2018-ConvKNRM/K-NRM/bing/'),
+#         'knrm-sogou': wordvec.convknrm_handler('http://boston.lti.cs.cmu.edu/appendices/WSDM2018-ConvKNRM/K-NRM/sogou/'),
+#         'convknrm-bing': wordvec.convknrm_handler('http://boston.lti.cs.cmu.edu/appendices/WSDM2018-ConvKNRM/Conv-KNRM/bing/'),
+#         'convknrm-sogou': wordvec.convknrm_handler('http://boston.lti.cs.cmu.edu/appendices/WSDM2018-ConvKNRM/Conv-KNRM/sogou/')
+#     },
+#     'bionlp': {
+#         'pubmed-pmc': wordvec.gensim_w2v_handler('http://evexdb.org/pmresources/vec-space-models/PubMed-and-PMC-w2v.bin')
+#     },
+#     'nil': wordvec.nil_handler
+# }
 
-_SOURCES = {
-    'fasttext': {
-        'wiki-news-300d-1M': wordvec.zip_handler('https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip'),
-        'crawl-300d-2M': wordvec.zip_handler('https://dl.fbaipublicfiles.com/fasttext/vectors-english/crawl-300d-2M.vec.zip'),
-    },
-    'glove': {
-        'cc-42b-300d': wordvec.zip_handler('http://nlp.stanford.edu/data/glove.42B.300d.zip', ext='.txt'),
-        'cc-840b-300d': wordvec.zip_handler('http://nlp.stanford.edu/data/glove.840B.300d.zip', ext='.txt')
-    },
-    'convknrm': {
-        'knrm-bing': wordvec.convknrm_handler('http://boston.lti.cs.cmu.edu/appendices/WSDM2018-ConvKNRM/K-NRM/bing/'),
-        'knrm-sogou': wordvec.convknrm_handler('http://boston.lti.cs.cmu.edu/appendices/WSDM2018-ConvKNRM/K-NRM/sogou/'),
-        'convknrm-bing': wordvec.convknrm_handler('http://boston.lti.cs.cmu.edu/appendices/WSDM2018-ConvKNRM/Conv-KNRM/bing/'),
-        'convknrm-sogou': wordvec.convknrm_handler('http://boston.lti.cs.cmu.edu/appendices/WSDM2018-ConvKNRM/Conv-KNRM/sogou/')
-    },
-    'bionlp': {
-        'pubmed-pmc': wordvec.gensim_w2v_handler('http://evexdb.org/pmresources/vec-space-models/PubMed-and-PMC-w2v.bin')
-    },
-    'nil': wordvec.nil_handler
-}
-
-
-@vocab.register('wordvec')
+@param("data", type=WordEmbeddings)
+@param("train", default=False, help="Should the word embeddings be re-retrained?")
+@param("random", type=Random, required=False)
+@config()
 class WordvecVocab(vocab.Vocab):
     """
     A word vector vocabulary that supports standard pre-trained word vectors
     """
-    @staticmethod
-    def default_config():
-        return {
-            'source': config.Choices(['fasttext', 'glove', 'convknrm', 'bionlp', 'nil']),
-            'variant': 'wiki-news-300d-1M',
-            'train': False
-        }
-
-    def __init__(self, config, logger, random):
-        super().__init__(config, logger)
-        self.random = random
-        path = util.path_vocab(self)
-        cache_path = os.path.join(path, '{source}-{variant}.p'.format(**self.config))
-        if not os.path.exists(cache_path):
-            fn = _SOURCES[self.config['source']]
-            if isinstance(fn, dict):
-                fn = fn[self.config['variant']]
-            self._terms, self._weights = fn(self.logger)
-            with logger.duration(f'writing cached at {cache_path}'):
-                with open(cache_path, 'wb') as f:
-                    pickle.dump((self._terms, self._weights), f, protocol=4)
-        else:
-            with logger.duration(f'reading cached at {cache_path}'):
-                with open(cache_path, 'rb') as f:
-                    self._terms, self._weights = pickle.load(f)
+    def __initialize__(self):
+        super().__initialize__()
+        self._terms, self._weights = self.load()
         self._term2idx = {t: i for i, t in enumerate(self._terms)}
+
+    def __validate__(self):
+        """Check that values are coherent"""
+        if self.train:
+            assert self.random is not None
+
+    @cache("terms.npy")
+    def load(self, path: Path):
+        path_lst = path.with_suffix(".lst")
+        if path.is_file():
+            with path_lst.open("rb") as fp:
+                return pickle.load(fp), np.load(path)
+        
+        terms, weights = self.data.load()
+        np.save(path, weights)
+        with path_lst.open("wb") as fp:
+            pickle.dump(terms, fp)
+        return terms, weights
+
 
     def tok2id(self, tok):
         return self._term2idx[tok]
@@ -68,17 +71,8 @@ class WordvecVocab(vocab.Vocab):
     def id2tok(self, idx):
         return self._terms[idx]
 
-    def path_segment(self):
-        result = '{name}_{source}_{variant}'.format(name=self.name, **self.config)
-        if self.config['train']:
-            result += '_tr'
-        return result
-
     def encoder(self):
         return WordvecEncoder(self)
-
-    def lexicon_path_segment(self):
-        return '{source}_{variant}'.format(**self.config)
 
     def lexicon_size(self) -> int:
         return len(self._terms)
@@ -134,7 +128,7 @@ class WordvecHashVocab(WordvecVocab):
         try:
             return super().tok2id(tok)
         except KeyError:
-            if self.config['log_miss']:
+            if self.log_miss:
                 self.logger.debug(f'vocab miss {tok}')
             # NOTE: use md5 hash (or similar) here because hash() is not consistent across runs
             item = tok.encode()
@@ -142,11 +136,8 @@ class WordvecHashVocab(WordvecVocab):
             item_hash_pos = item_hash % self._hashspace
             return len(self._terms) + item_hash_pos
 
-    def lexicon_path_segment(self):
-        return '{base}_hash{hashspace}'.format(**self.config, base=super().lexicon_path_segment())
-
     def lexicon_size(self) -> int:
-        return len(self._terms) + self.config['hashspace']
+        return len(self._terms) + self.hashspace
 
 
 class WordvecEncoder(vocab.VocabEncoder):
@@ -156,7 +147,7 @@ class WordvecEncoder(vocab.VocabEncoder):
         matrix = vocabulary._weights
         self.size = matrix.shape[1]
         matrix = np.concatenate([np.zeros((1, self.size)), matrix]) # add padding record (-1)
-        self.embed = nn.Embedding.from_pretrained(torch.from_numpy(matrix.astype(np.float32)), freeze=not vocabulary.config['train'])
+        self.embed = nn.Embedding.from_pretrained(torch.from_numpy(matrix.astype(np.float32)), freeze=not vocabulary.train)
 
     def _enc_spec(self) -> dict:
         return {

@@ -1,55 +1,54 @@
 from tqdm import tqdm
 import torch
-from onir import util, trainers
+from experimaestro import param, option, config, pathargument
+from onir import util, trainers, _onir
 from onir.interfaces import apex
+from onir.rankers import Ranker
+from onir.datasets import Dataset
+from onir.vocab import Vocab
+from onir.log import Logger
+from onir.random import Random
 
+@param('batch_size', default=16)
+@param('batches_per_epoch', default=32)
+@param('grad_acc_batch', default=0)
+@param('optimizer', default='adam')
+@param('lr', default=0.001)
+@param('gpu', default=True)
+@param('gpu_determ', default=True)
+@param('encoder_lr', default=0.)
 
+@param("dataset", type=Dataset)
+@param("ranker", type=Ranker)
+@param("vocab", type=Vocab)
+@param("random", type=Random)
+
+@option("device", type=util.Device, default=util.DEFAULT_DEVICE)
+@pathargument("modelpath", "model")
+@config()
 class Trainer:
     name = None
 
-    @staticmethod
-    def default_config():
-        return {
-            'batch_size': 16,
-            'batches_per_epoch': 32,
-            'grad_acc_batch': 0,
-            'optimizer': 'adam',
-            'lr': 0.001,
-            'gpu': True,
-            'gpu_determ': True,
-            'encoder_lr': 0.
-        }
-
-    def __init__(self, config, ranker, vocab, train_ds, logger, random):
-        self.config = config
-        self.ranker = ranker
-        self.vocab = vocab
-        self.logger = logger
-        self.dataset = train_ds
-        self.random = random
-
-        self.batch_size = self.config['batch_size']
-        if self.config['grad_acc_batch'] > 0:
-            assert self.config['batch_size'] % self.config['grad_acc_batch'] == 0, \
+    def __initialize__(self):
+        self.logger = Logger(self.__class__.__name__)
+        if self.grad_acc_batch > 0:
+            assert self.batch_size % self.grad_acc_batch == 0, \
                 "batch_size must be a multiple of grad_acc_batch"
-            self.batch_size = self.config['grad_acc_batch']
+            self.batch_size = self.grad_acc_batch
 
-        self.device = util.device(self.config, self.logger)
+        self.device = self.device(self.logger)
 
     def iter_train(self, only_cached=False):
         epoch = -1
-        base_path = util.path_model_trainer(self.ranker, self.vocab, self, self.dataset)
         context = {
             'epoch': epoch,
-            'batch_size': self.config['batch_size'],
-            'batches_per_epoch': self.config['batches_per_epoch'],
-            'num_microbatches': 1 if self.config['grad_acc_batch'] == 0 else self.config['batch_size'] // self.config['grad_acc_batch'],
-            'device': self.device,
-            'base_path': base_path,
+            'batch_size': self.batch_size,
+            'batches_per_epoch': self.batches_per_epoch,
+            'num_microbatches': 1 if self.grad_acc_batch == 0 else self.batch_size // self.grad_acc_batch,
+            'device': self.device
         }
 
-        files = trainers.misc.PathManager(base_path)
-        self.logger.info(f'train path: {base_path}')
+        files = trainers.misc.PathManager(str(self.modelpath))
 
         b_count = context['batches_per_epoch'] * context['num_microbatches'] * self.batch_size
 
@@ -185,8 +184,8 @@ class Trainer:
         # split encoder params and non-encoder params to support encoder_lr setting
         encoder_params = {'params': [v for k, v in params if k.startswith('encoder.')]}
         non_encoder_params = {'params': [v for k, v in params if not k.startswith('encoder.')]}
-        if self.config['encoder_lr'] > 0:
-            encoder_params['lr'] = self.config['encoder_lr']
+        if self.encoder_lr > 0:
+            encoder_params['lr'] = self.encoder_lr
         params = []
         if non_encoder_params['params']:
             params.append(non_encoder_params)
@@ -195,16 +194,16 @@ class Trainer:
 
         # build the optmizer
         return {
-            'adam': lambda p: torch.optim.Adam(p, lr=self.config['lr']),
-            'fusedadam': lambda p: apex.FusedAdam(p, lr=self.config['lr']),
-            'fp16fusedadam': lambda p: apex.FP16_Optimizer(apex.FusedAdam(p, lr=self.config['lr']), dynamic_loss_scale=True),
-        }[self.config['optimizer']](params)
+            'adam': lambda p: torch.optim.Adam(p, lr=self.lr),
+            'fusedadam': lambda p: apex.FusedAdam(p, lr=self.lr),
+            'fp16fusedadam': lambda p: apex.FP16_Optimizer(apex.FusedAdam(p, lr=self.lr), dynamic_loss_scale=True),
+        }[self.optimizer](params)
 
     def path_segment(self):
-        grad_acc = 'x{grad_acc_batch}'.format(**self.config) if self.config['grad_acc_batch'] > 0 else ''
+        grad_acc = 'x{grad_acc_batch}'.format(**self.config) if self.grad_acc_batch > 0 else ''
         result = '{batches_per_epoch}x{batch_size}{grad_acc}_{optimizer}-{lr}'.format(**self.config, grad_acc=grad_acc)
-        if self.config['encoder_lr'] > 0:
-            result += '_encoderlr-{}'.format(self.config['encoder_lr'])
+        if self.encoder_lr > 0:
+            result += '_encoderlr-{}'.format(self.encoder_lr)
         return result
 
     def train_batch(self):

@@ -9,6 +9,7 @@ import zlib
 import random
 import tarfile
 import time
+from experimaestro import config, argument
 from glob import glob
 from contextlib import contextmanager
 import torch
@@ -16,84 +17,15 @@ import requests
 from tqdm import tqdm
 import numpy as np
 from scipy.stats import gaussian_kde
-from onir import config, log
+from onir import config as _config, log
 from onir.util.concurrency import safe_thread_count, blocking_tee, background, CtxtThread, iter_noop, Lazy
 from onir.util.download import download, download_stream, download_iter, download_if_needed, download_tmp
 from onir.util.matheval import matheval
 
-
-
-def get_working():
-    base = config.args()['data_dir']
-    base = os.path.expanduser(base)
-    os.makedirs(base, exist_ok=True)
-    return base
-
-
-def path_dataset(dataset):
-    path = os.path.join(get_working(), 'datasets', dataset.name)
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
-def path_dataset_records(dataset, record_method):
-    path = os.path.join(get_working(), 'datasets', 'records', record_method, dataset.lexicon_path_segment())
-    if not os.path.exists(path):
-        os.makedirs(path)
-        with open(os.path.join(path, 'config.json'), 'wt') as f:
-            json.dump(dataset.config, f)
-    return path
-
-
-def path_modelspace():
-    modelspace = config.args()['modelspace']
-    path = os.path.join(get_working(), 'models', modelspace)
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
-def path_model(ranker):
-    modelspace = config.args()['modelspace']
-    path = os.path.join(get_working(), 'models', modelspace, ranker.path_segment())
-    if not os.path.exists(path):
-        os.makedirs(path)
-        with open(os.path.join(path, 'config.json'), 'wt') as f:
-            json.dump(ranker.config, f)
-        with open(os.path.join(path, 'structure.txt'), 'wt') as f:
-            f.write(repr(ranker))
-    return path
-
-
-def path_model_trainer(ranker, vocab, trainer, dataset):
-    path = os.path.join(path_model(ranker), vocab.path_segment(), trainer.path_segment(), dataset.path_segment())
-    if not os.path.exists(path):
-        os.makedirs(path)
-        with open(os.path.join(path_model(ranker), vocab.path_segment(), 'config.json'), 'wt') as f:
-            json.dump(vocab.config, f)
-        with open(os.path.join(path_model(ranker), vocab.path_segment(), trainer.path_segment(), 'config.json'), 'wt') as f:
-            json.dump(trainer.config, f)
-        with open(os.path.join(path_model(ranker), vocab.path_segment(), trainer.path_segment(), dataset.path_segment(), 'config.json'), 'wt') as f:
-            json.dump(dataset.config, f)
-    return path
-
-def path_model_trainer_pred(ranker, vocab, trainer, dataset, valid_ds):
-    path = os.path.join(path_model_trainer(ranker, vocab, trainer, dataset), valid_ds.path_segment())
-    if not os.path.exists(path):
-        os.makedirs(path)
-        with open(os.path.join(path, 'config.json'), 'wt') as f:
-            json.dump(valid_ds.config, f)
-    return path
-
 def path_log():
     path = os.path.join(get_working(), 'logs')
     os.makedirs(path, exist_ok=True)
-    path = os.path.join(path, config.args()['runid'] + '.log')
-    return path
-
-
-def path_vocab(vocab):
-    path = os.path.join(get_working(), 'vocab', vocab.name)
-    os.makedirs(path, exist_ok=True)
+    path = os.path.join(path, _config.args()['runid'] + '.log')
     return path
 
 
@@ -295,22 +227,28 @@ def allow_redefinition_iter(fn):
     return wrapped
 
 
-def device(config, logger=None):
-    device = torch.device('cpu')
-    if config['gpu']:
-        if not torch.cuda.is_available():
-            logger.error('gpu=True, but CUDA is not available. Falling back on CPU.')
-        else:
-            if config['gpu_determ']:
-                if logger is not None:
-                    logger.debug('using GPU (deterministic)')
+@argument("gpu", default=False)
+@argument("gpu_determ", default=False)
+@config()
+class Device:
+    def __call__(self, logger):
+        """Called by experimaestro to substitute object at run time"""
+        device = torch.device('cpu')
+        if self.gpu:
+            if not torch.cuda.is_available():
+                logger.error('gpu=True, but CUDA is not available. Falling back on CPU.')
             else:
-                if logger is not None:
-                    logger.debug('using GPU (non-deterministic)')
-            device = torch.device('cuda')
-            torch.backends.cudnn.deterministic = config['gpu_determ']
-    return device
+                if self.gpu_determ:
+                    if logger is not None:
+                        logger.debug('using GPU (deterministic)')
+                else:
+                    if logger is not None:
+                        logger.debug('using GPU (non-deterministic)')
+                device = torch.device('cuda')
+                torch.backends.cudnn.deterministic = self.gpu_determ
+        return device
 
+DEFAULT_DEVICE = Device()
 
 @contextmanager
 def finialized_file(path, mode):

@@ -11,7 +11,7 @@ import onir
 from onir import util, datasets, indices
 from onir.interfaces import trec, plaintext
 
-
+# TODO: transfer to datamaestro_text
 _SOURCES = {
     'collection': 'https://msmarco.blob.core.windows.net/msmarcoranking/collection.tar.gz',
     'queries': 'https://msmarco.blob.core.windows.net/msmarcoranking/queries.tar.gz',

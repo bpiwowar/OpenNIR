@@ -1,19 +1,14 @@
-from onir import util
+from experimaestro import config, param
+from onir import util, vocab, log
 
-
+@param("vocab", type=vocab.Vocab)
+@config()
 class Dataset:
     name = None
     DUA = None
 
-    @staticmethod
-    def default_config():
-        return {}
-
-    def __init__(self, config, logger, vocab):
-        self.config = config
-        self.logger = logger
-        self.vocab = vocab
-        self._has_confirmed_dua = None
+    def __initialize__(self):
+        self.logger = log.Logger(self.__class__.__name__)
 
     def qrels(self, fmt='dict'):
         raise NotImplementedError

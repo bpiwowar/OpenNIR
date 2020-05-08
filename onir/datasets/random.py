@@ -1,21 +1,15 @@
+from experimaestro import param, config, option
 from onir import datasets
 
+@param('qlen', default=5)
+@param('dlen', default=500)
+@param('count', default=10000)
 
-@datasets.register('random')
+@config()
 class RandomDataset(datasets.Dataset):
     """
     Dataset producing random samples, used for controlled tests in scripts/perf_benchmark.py
     """
-
-    @staticmethod
-    def default_config():
-        result = datasets.Dataset.default_config()
-        result.update({
-            'qlen': 5,
-            'dlen': 500,
-            'count': 10000
-        })
-        return result
 
     def __init__(self, config, logger, vocab, random):
         super().__init__(config, logger, vocab)

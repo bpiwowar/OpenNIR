@@ -1,9 +1,9 @@
-
+from experimaestro import config
 
 # Implementations should either override pred_ctxt or run.
 # If predicting requires some state (e.g., pre-loaded data) that is re-used between predictions,
 # implement a new pred_ctxt. If not, implement run.
-
+@config()
 class BasePredictor:
     def pred_ctxt(self):
         return RunPredictorContext(self)

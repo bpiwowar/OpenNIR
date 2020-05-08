@@ -8,6 +8,7 @@ import re
 import shutil
 import threading
 import contextlib
+from pathlib import Path
 from functools import lru_cache
 from pytools import memoize_method
 import onir
@@ -17,8 +18,9 @@ from onir import indices
 
 logger = onir.log.easy()
 
+JBASEPATH = Path(__file__).parents[2] / "bin"
 
-J.register(jars=["bin/lucene-backward-codecs-8.0.0.jar", "bin/anserini-0.8.0-fatjar.jar"], defs=dict(
+J.register(jars=[f"{JBASEPATH}/lucene-backward-codecs-8.0.0.jar", f"{JBASEPATH}/anserini-0.8.0-fatjar.jar"], defs=dict(
     # [L]ucene
     L_FSDirectory='org.apache.lucene.store.FSDirectory',
     L_DirectoryReader='org.apache.lucene.index.DirectoryReader',
@@ -73,6 +75,7 @@ class AnseriniIndex(indices.BaseIndex):
     Interface to an Anserini index.
     """
     def __init__(self, path, keep_stops=False, stemmer='porter', field='text', store_raw_docs=False, lang='en'):
+        path = str(path)
         self._path = path
         os.makedirs(path, exist_ok=True)
         self._settings_path = os.path.join(path, 'settings.json')

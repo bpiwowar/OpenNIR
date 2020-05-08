@@ -1,31 +1,29 @@
+
+from experimaestro import param, config, Choices
 import torch
 from torch import nn
-from onir import rankers, modules
+from onir import rankers, modules, _onir, vocab
 
-
-@rankers.register('drmm')
+@param("nbins", default=29, help="number of bins in matching histogram")
+@param(
+    "hidden", default=5, help="hidden layer dimension for feed forward matching network"
+)
+@param(
+    "histType", default="logcount", help="histogram type",
+    checker=Choices(['count', 'norm', 'logcount'])
+)
+@param("combine", default="idf", checker=Choices(["idf", "sum"]), help="term gate type")
+@param("vocab", type=vocab.Vocab)
+@config()
 class Drmm(rankers.Ranker):
     """
     Implementation of the DRMM model from:
       > Jiafeng Guo, Yixing Fan, Qingyao Ai, and William Bruce Croft. 2016. A Deep Relevance
       > Matching Model for Ad-hoc Retrieval. In CIKM.
     """
-
-    @staticmethod
-    def default_config():
-        result = rankers.Ranker.default_config()
-        result.update({
-            'hidden': 5,
-            'nbins': 11,
-            'histo': 'logcount',
-            'combine': 'idf',
-        })
-        return result
-
-    def __init__(self, vocab, config, logger, random):
-        super().__init__(config, random)
-        self.logger = logger
-        self.encoder = vocab.encoder()
+    def __initialize__(self):
+        super().__initialize__()
+        self.encoder = self.vocab.encoder()
         if not self.encoder.static():
             logger.warn('In most cases, using vocab.train=True will not have an effect on DRMM '
                         'because the histogram is not differentiable. An exception might be if '
@@ -35,14 +33,14 @@ class Drmm(rankers.Ranker):
             'count': CountHistogram,
             'norm': NormalizedHistogram,
             'logcount': LogCountHistogram
-        }[self.config['histo']](config['nbins'])
+        }[self.histType](self.nbins)
         channels = self.encoder.emb_views()
-        self.hidden_1 = nn.Linear(config['nbins'] * channels, config['hidden'])
-        self.hidden_2 = nn.Linear(config['hidden'], 1)
+        self.hidden_1 = nn.Linear(self.nbins * channels, self.hidden)
+        self.hidden_2 = nn.Linear(self.hidden, 1)
         self.combine = {
             'idf': IdfCombination,
             'sum': SumCombination
-        }[config['combine']]()
+        }[self.combine]()
 
     def input_spec(self):
         result = super().input_spec()
@@ -64,14 +62,6 @@ class Drmm(rankers.Ranker):
         histogram = histogram.permute(0, 2, 3, 1)
         histogram = histogram.reshape(BATCH, QLEN, BINS * CHANNELS)
         return histogram
-
-    def path_segment(self):
-        result = '{name}_{qlen}q_{dlen}d_{histo}-{nbins}_{hidden}h'.format(name=self.name, **self.config)
-        if self.config['combine'] != 'idf':
-            result += '_' + self.config['combine']
-        if self.config['add_runscore']:
-            result += '_addrun'
-        return result
 
 
 class CountHistogram(nn.Module):
