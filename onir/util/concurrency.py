@@ -53,8 +53,9 @@ def _blocking_tee_iter(ctrl, ev_available):
             raise ctrl.ex
         value = ctrl.value
         ctrl.notify_grabbed()
-        if value is not StopIteration:
-            yield value
+        if value is StopIteration:
+            break
+        yield value
 
 
 class _BlockingTeeControllerThread(Thread):
@@ -76,7 +77,7 @@ class _BlockingTeeControllerThread(Thread):
             try:
                 self.value = next(self._it)
             except StopIteration:
-                self.value = None
+                self.value = StopIteration
             except Exception as ex:
                 self.ex = ex
                 raise
