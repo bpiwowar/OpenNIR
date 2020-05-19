@@ -3,6 +3,7 @@ from torch import nn
 from onir import rankers, modules
 
 
+# TODO: adapt
 @rankers.register('knrm')
 class Knrm(rankers.Ranker):
     """
@@ -58,8 +59,8 @@ class Knrm(rankers.Ranker):
 
     def path_segment(self):
         result = '{name}_{qlen}q_{dlen}d'.format(name=self.name, **self.config)
-        if not self.config['grad_kernels']:
+        if not self.grad_kernels:
             result += '_gradkernels'
-        if self.config['add_runscore']:
+        if self.add_runscore:
             result += '_addrun'
         return result

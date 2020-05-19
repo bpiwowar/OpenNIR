@@ -1,13 +1,11 @@
 from tqdm import tqdm
 import torch
 from experimaestro import param, option, config, pathargument
-from onir import util, trainers, _onir
+from onir import util, trainers
 from onir.interfaces import apex
 from onir.rankers import Ranker
-from onir.datasets import Dataset
 from onir.vocab import Vocab
 from onir.log import Logger
-from onir.random import Random
 
 @param('batch_size', default=16)
 @param('batches_per_epoch', default=32)
@@ -18,18 +16,17 @@ from onir.random import Random
 @param('gpu_determ', default=True)
 @param('encoder_lr', default=0.)
 
-@param("dataset", type=Dataset)
-@param("ranker", type=Ranker)
-@param("vocab", type=Vocab)
-@param("random", type=Random)
-
 @option("device", type=util.Device, default=util.DEFAULT_DEVICE)
 @pathargument("modelpath", "model")
 @config()
 class Trainer:
     name = None
 
-    def __initialize__(self):
+    def initialize(self, random, ranker, dataset):
+        self.dataset = dataset
+        self.random = random
+        self.ranker = ranker
+        
         self.logger = Logger(self.__class__.__name__)
         if self.grad_acc_batch > 0:
             assert self.batch_size % self.grad_acc_batch == 0, \

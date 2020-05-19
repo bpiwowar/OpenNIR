@@ -3,8 +3,8 @@ from torch import nn
 from onir import rankers, modules
 from onir.vocab import wordvec_vocab
 
-
-@rankers.register('conv_knrm')
+# TODO: adapt
+@config()
 class ConvKnrm(rankers.Ranker):
     """
     Implementation of the ConvKNRM model from:
@@ -39,19 +39,19 @@ class ConvKnrm(rankers.Ranker):
             else:
                 self.padding.append(nn.Sequential()) # identity
             self.convs.append(nn.ModuleList())
-            if self.config['combine_channels']:
+            if self.combine_channels:
                 self.convs[-1].append(nn.Conv1d(self.embed.dim() * self.embed.emb_views(), config['conv_filters'], conv_size))
             else:
                 for _ in range(self.embed.emb_views()):
                     self.convs[-1].append(nn.Conv1d(self.embed.dim(), config['conv_filters'], conv_size))
-        if self.config['pretrained_kernels']:
+        if self.pretrained_kernels:
             kernels = wordvec_vocab._SOURCES[vocab.config['source']][vocab.config['variant']](logger, get_kernels=True)
             for conv, weight, bias in zip(self.convs, *kernels):
                 conv[0].weight.data = torch.from_numpy(weight).float()
                 conv[0].bias.data = torch.from_numpy(bias).float()
         self.kernels = modules.RbfKernelBank.from_strs(config['mus'], config['sigmas'], dim=1, requires_grad=config['grad_kernels'])
         channels = config['max_ngram'] ** 2 if config['crossmatch'] else config['max_ngram']
-        if not self.config['combine_channels']:
+        if not self.combine_channels:
             channels *= self.embed.emb_views() ** 2 if config['crossmatch'] else self.embed.emb_views()
         self.combine = nn.Linear(self.kernels.count() * channels, 1)
 
@@ -69,7 +69,7 @@ class ConvKnrm(rankers.Ranker):
             a_embed = torch.stack(a_embed, dim=2)
             b_embed = torch.stack(b_embed, dim=2)
         a_reps, b_reps = [], []
-        if self.config['combine_channels']:
+        if self.combine_channels:
             a_embed = a_embed.reshape(a_embed.shape[0], a_embed.shape[1], -1)
             b_embed = b_embed.reshape(b_embed.shape[0], b_embed.shape[1], -1)
             for pad, conv in zip(self.padding, self.convs):
@@ -89,7 +89,7 @@ class ConvKnrm(rankers.Ranker):
                     a_reps.append(conv[layer](pad(a_emb.permute(0, 2, 1))).permute(0, 2, 1))
                     b_reps.append(conv[layer](pad(b_emb.permute(0, 2, 1))).permute(0, 2, 1))
         simmats = []
-        if self.config['crossmatch']:
+        if self.crossmatch:
             for a_rep in a_reps:
                 for b_rep in b_reps:
                     simmats.append(self.simmat(a_rep, b_rep, inputs['query_tok'], inputs['doc_tok']))
@@ -112,14 +112,14 @@ class ConvKnrm(rankers.Ranker):
 
     def path_segment(self):
         result = '{name}_{qlen}q_{dlen}d_ng{max_ngram}_conv{conv_filters}'.format(name=self.name, **self.config)
-        if not self.config['grad_kernels']:
+        if not self.grad_kernels:
             result += '_nogradkernels'
-        if not self.config['crossmatch']:
+        if not self.crossmatch:
             result += '_nocrossmatch'
-        if self.config['combine_channels']:
+        if self.combine_channels:
             result += '_combinechannels'
-        if self.config['pretrained_kernels']:
+        if self.pretrained_kernels:
             result += '_pretrainedkernels'
-        if self.config['add_runscore']:
+        if self.add_runscore:
             result += '_addrun'
         return result

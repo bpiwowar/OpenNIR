@@ -2,6 +2,7 @@ import torch
 from onir import rankers
 
 
+# TODO: adapt
 @rankers.register('cedr_pacrr')
 class CedrPacrr(rankers.pacrr.Pacrr):
     """

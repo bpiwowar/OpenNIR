@@ -24,7 +24,7 @@ class MultilingualDataset(datasets.IndexBackedDataset):
 
     def path_segment(self):
         result = '{name}_{rankfn}.{ranktopk}_{subset}'.format(**self.config, name=self.name)
-        if self.config['querysource'] != 'topic':
+        if self.querysource != 'topic':
             result += '_{querysource}'.format(**self.config)
         return result
 
@@ -33,12 +33,12 @@ class MultilingualDataset(datasets.IndexBackedDataset):
 
     @memoize_method
     def _load_queries_base(self, subset):
-        querysource = self.config['querysource']
+        querysource = self.querysource
         query_path = os.path.join(util.path_dataset(self), f'{subset}.topics')
         return {qid: text for t, qid, text in plaintext.read_tsv(query_path) if t == querysource}
 
     def qrels(self, fmt='dict'):
-        return self._load_qrels(self.config['subset'], fmt=fmt)
+        return self._load_qrels(self.subset, fmt=fmt)
 
     @memoize_method
     def _load_qrels(self, subset, fmt):

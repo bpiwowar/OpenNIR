@@ -276,23 +276,3 @@ def path_to_stream(arg=0, mode='rt'):
                 return fn(*args, **kwargs)
         return inner
     return wrapped
-
-
-
-class Registry:
-    def __init__(self, default: str = None):
-        self.registered = {}
-        self.default = default
-
-    def register(self, name):
-        rgstr = self
-        def wrapped(fn):
-            rgstr.registered[name] = fn
-            fn.name = name
-            return fn
-        return wrapped
-
-    def copy(self, default=None):
-        result = Registry(default=default or self.default)
-        result.registered = dict(self.registered)
-        return result

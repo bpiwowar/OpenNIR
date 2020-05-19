@@ -2,7 +2,7 @@
 from experimaestro import param, config, Choices
 import torch
 from torch import nn
-from onir import rankers, modules, _onir, vocab
+from onir import rankers, modules, vocab
 
 @param("nbins", default=29, help="number of bins in matching histogram")
 @param(
@@ -21,8 +21,8 @@ class Drmm(rankers.Ranker):
       > Jiafeng Guo, Yixing Fan, Qingyao Ai, and William Bruce Croft. 2016. A Deep Relevance
       > Matching Model for Ad-hoc Retrieval. In CIKM.
     """
-    def __initialize__(self):
-        super().__initialize__()
+    def initialize(self, random):
+        super().initialize(random)
         self.encoder = self.vocab.encoder()
         if not self.encoder.static():
             logger.warn('In most cases, using vocab.train=True will not have an effect on DRMM '

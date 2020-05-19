@@ -39,9 +39,9 @@ class RandomDataset(datasets.Dataset):
         for field in sorted(fields):
             l = 1
             if field.startswith('query_'):
-                l = self.config['qlen']
+                l = self.qlen
             elif field.startswith('doc_'):
-                l = self.config['dlen']
+                l = self.dlen
             if field in ('runscore', 'relscore'):
                 result[field] = self.random.rand()
             elif field.endswith('_len'):
@@ -65,5 +65,5 @@ class RandomDataset(datasets.Dataset):
         first = True
         while first or inf:
             first = False
-            for _ in range(self.config['count']):
+            for _ in range(self.count):
                 yield self.build_record(fields)

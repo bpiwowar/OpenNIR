@@ -1,7 +1,7 @@
 from onir import vocab
 
 
-@vocab.register('trivial')
+# TODO: adapt ('trivial')
 class TrivialVocab(vocab.Vocab):
     @staticmethod
     def default_config():

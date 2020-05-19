@@ -46,6 +46,7 @@ class PyTrecEvalMetrics(_metrics.BaseMetrics):
 
     def calc_metrics(self, qrels_dict, run_dict, metrics, verbose=False):
         rel_args = {}
+        # Convert internal metric names (e.g. p@20) into pytrec_eval names (e.g. P_20)
         for metric in metrics:
             for exp in PTE_METRIC_MAP:
                 match = re.match(exp, str(metric))
@@ -59,7 +60,7 @@ class PyTrecEvalMetrics(_metrics.BaseMetrics):
         result = {}
         for (rel, gains), measures in rel_args.items():
             these_qrels = self._apply_gains(qrels_dict, gains)
-            evaluator = pytrec_eval.RelevanceEvaluator(these_qrels, measures.keys(), relevance_level=rel)
+            evaluator = pytrec_eval.RelevanceEvaluator(these_qrels, set(measures.keys()), relevance_level=rel)
             pte_results = evaluator.evaluate(run_dict)
             # translate and filter this to the output format
             for pte_name, onir_name in measures.items():

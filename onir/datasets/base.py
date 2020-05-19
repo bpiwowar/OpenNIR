@@ -1,7 +1,6 @@
 from experimaestro import config, param
 from onir import util, vocab, log
 
-@param("vocab", type=vocab.Vocab)
 @config()
 class Dataset:
     name = None
@@ -36,9 +35,6 @@ class Dataset:
 
     def num_queries(self):
         raise NotImplementedError
-
-    def lexicon_path_segment(self):
-        return self.path_segment() + '_' + self.vocab.lexicon_path_segment()
 
     def _confirm_dua(self):
         if self._has_confirmed_dua is None and self.DUA is not None:

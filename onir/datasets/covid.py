@@ -36,7 +36,7 @@ https://ir.nist.gov/covidSubmit/"""
             'subset': onir.config.Choices(['rnd1-query', 'rnd1-quest', 'rnd1-narr', 'rnd1-udel', 'rnd2-query', 'rnd2-quest', 'rnd2-narr', 'rnd2-udel']),
             # date of CORD-19 dump to use
             'date': onir.config.Choices(['2020-04-10']),
-            '2020_filter': False, # filter documents to only 2020?
+            'filter_2020': False, # filter documents to only 2020?
             # batch search (bs) / re-rank (rr) document field to use
             'bs_field': onir.config.Choices(['text', 'title', 'abstract', 'title_abs', 'body'], default='text'),
             'rr_field': onir.config.Choices(['text', 'title', 'abstract', 'title_abs', 'body'], default='title_abs'),
@@ -57,29 +57,29 @@ https://ir.nist.gov/covidSubmit/"""
     def path_segment(self):
         result = '{base}_{date}'.format(base=super().path_segment(), **self.config)
         result += '_bs-{bs_field}'.format(**self.config)
-        if self.config['2020_filter']:
+        if self.filter_2020:
             result += '_2020filter'
-        if self.config['bs_override']:
+        if self.bs_override:
             result += '_bsoverride-{bs_override}'.format(**self.config)
         result += '_rr-{rr_field}'.format(**self.config)
         return result
 
     def run(self, fmt='dict'):
         return self._load_run_base(self._get_index_for_batchsearch(),
-                                   self.config['bs_override'] or self.config['subset'],
-                                   self.config['rankfn'],
-                                   self.config['ranktopk'],
+                                   self.bs_override or self.subset,
+                                   self.rankfn,
+                                   self.ranktopk,
                                    fmt=fmt)
 
     def run_dict(self):
         return self._load_run_base(self._get_index_for_batchsearch(),
-                                   self.config['bs_override'] or self.config['subset'],
-                                   self.config['rankfn'],
-                                   self.config['ranktopk'],
+                                   self.bs_override or self.subset,
+                                   self.rankfn,
+                                   self.ranktopk,
                                    fmt='dict')
 
     def _get_index_for_batchsearch(self):
-        if self.config['2020_filter']:
+        if self.filter_2020:
             return self.index_stem_2020
         return self.index_stem
 
@@ -93,7 +93,7 @@ https://ir.nist.gov/covidSubmit/"""
         return {qid: qtext for qid, qtype, qtext in plaintext.read_tsv(path) if qtype in fields}
 
     def qrels(self):
-        return self._base_qrels(self.config['subset'])
+        return self._base_qrels(self.subset)
 
     @memoize_method
     def _base_qrels(self, subset):
@@ -192,11 +192,11 @@ https://ir.nist.gov/covidSubmit/"""
             '2020-04-10': ('https://ai2-semanticscholar-cord-19.s3-us-west-2.amazonaws.com/2020-04-10/metadata.csv', "42a21f386be86c24647a41bedde34046"),
             '2020-05-01': ('https://ai2-semanticscholar-cord-19.s3-us-west-2.amazonaws.com/2020-05-01/metadata.csv', "b1d2e409026494e0c8034278bacd1248"),
         }
-        meta_url, meta_md5 = metadata[self.config['date']]
+        meta_url, meta_md5 = metadata[self.date]
 
         fulltexts = {}
         with contextlib.ExitStack() as stack:
-            for fid, (file, md5) in files[self.config['date']].items():
+            for fid, (file, md5) in files[self.date].items():
                 fulltexts[fid] = stack.enter_context(util.download_tmp(file, tarf=True, expected_md5=md5))
             meta = pd.read_csv(util.download_stream(meta_url, expected_md5=meta_md5))
             for _, row in meta.iterrows():

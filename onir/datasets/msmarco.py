@@ -73,7 +73,7 @@ http://www.msmarco.org/dataset.aspx"""
         return self.index_stem
 
     def qrels(self, fmt='dict'):
-        return self._load_qrels(self.config['subset'], fmt=fmt)
+        return self._load_qrels(self.subset, fmt=fmt)
 
     @memoize_method
     def _load_qrels(self, subset, fmt):
@@ -83,7 +83,7 @@ http://www.msmarco.org/dataset.aspx"""
             return trec.read_qrels_fmt(path, fmt)
 
     def load_queries(self) -> dict:
-        return self._load_queries_base(self.config['subset'])
+        return self._load_queries_base(self.subset)
 
     @memoize_method
     def _load_queries_base(self, subset):
@@ -92,13 +92,13 @@ http://www.msmarco.org/dataset.aspx"""
         return dict(self.logger.pbar(plaintext.read_tsv(path), desc='loading queries'))
 
     def pair_iter(self, fields, pos_source='intersect', neg_source='run', sampling='query', pos_minrel=1, unjudged_rel=0, num_neg=1, random=None, inf=False):
-        special = self.config['special']
+        special = self.special
         if special == '':
             raise NotImplementedError
         assert pos_minrel == 1, f"{special} only supports pos_minrel=1"
         assert unjudged_rel == 0, f"{special} only supports unjudged_rel=1"
         assert num_neg == 1, f"{special} only supports num_neg=1"
-        assert self.config['subset'] in ('train', 'train10'), f"{special} only supported with subset=train[10]"
+        assert self.subset in ('train', 'train10'), f"{special} only supported with subset=train[10]"
         self.logger.warn(f'Using {special}; ingoring pair_iter arguments pos_source={pos_source} neg_source={neg_source} sampling={sampling}')
         first = True
         while first or inf:
@@ -119,7 +119,7 @@ http://www.msmarco.org/dataset.aspx"""
                     yield result
 
     def record_iter(self, fields, source, minrel=None, shuf=True, random=None, inf=False, run_threshold=None):
-        special = self.config['special']
+        special = self.special
         if special == '':
             raise NotImplementedError
         assert minrel is None or minrel < 1
@@ -166,7 +166,7 @@ http://www.msmarco.org/dataset.aspx"""
 
     def path_segment(self):
         result = super().path_segment()
-        if self.config['special'] != '':
+        if self.special != '':
             result += '_{special}'.format(**self.config)
         return result
 
@@ -229,7 +229,7 @@ http://www.msmarco.org/dataset.aspx"""
         if (force or not os.path.exists(file)) and self._confirm_dua():
             util.download(_SOURCES['qidpidtriples.train.full'], file)
 
-        if not self.config['init_skip_msrun']:
+        if not self.init_skip_msrun:
             for file_name, subf in [('dev.msrun', 'top1000.dev'), ('eval.msrun', 'top1000.eval'), ('train.msrun', 'top1000.train.txt')]:
                 file = os.path.join(base_path, file_name)
                 if (force or not os.path.exists(file)) and self._confirm_dua():
@@ -293,14 +293,14 @@ http://www.msmarco.org/dataset.aspx"""
                 for qid, qtext in plaintext.read_tsv(os.path.join(base_path, 'dev.queries.tsv')):
                     if qid in judged_qids():
                         plaintext.write_tsv(f, [(qid, qtext)])
-        if self.config['init_skip_msrun']:
+        if self.init_skip_msrun:
             if not os.path.exists(f'{judgeddev_path}.msrun'):
                 with util.finialized_file(f'{judgeddev_path}.msrun', 'wt') as f:
                     for qid, dids in trec.read_run_dict(os.path.join(base_path, 'dev.msrun')).items():
                         if qid in judged_qids():
                             trec.write_run_dict(f, {qid: dids})
 
-        if not self.config['init_skip_train10']:
+        if not self.init_skip_train10:
             file = os.path.join(base_path, 'train10.queries.tsv')
             if not os.path.exists(file):
                 with util.finialized_file(file, 'wt') as fout:
@@ -316,7 +316,7 @@ http://www.msmarco.org/dataset.aspx"""
                         if int(qid) % 10 == 0:
                             fout.write(line)
 
-            if not self.config['init_skip_msrun']:
+            if not self.init_skip_msrun:
                 file = os.path.join(base_path, 'train10.msrun')
                 if not os.path.exists(file):
                     with util.finialized_file(file, 'wt') as fout, open(os.path.join(base_path, 'train.msrun'), 'rt') as fin:
@@ -332,7 +332,7 @@ http://www.msmarco.org/dataset.aspx"""
                         if int(qid) % 10 == 0:
                             plaintext.write_tsv(fout, [(qid, did1, did2)])
 
-        if not self.config['init_skip_train_med']:
+        if not self.init_skip_train_med:
             med_qids = util.Lazy(lambda: {qid.strip() for qid in util.download_stream('https://raw.githubusercontent.com/Georgetown-IR-Lab/covid-neural-ir/master/med-msmarco-train.txt', 'utf8', expected_md5="dc5199de7d4a872c361f89f08b1163ef")})
             file = os.path.join(base_path, 'train_med.queries.tsv')
             if not os.path.exists(file):
@@ -349,7 +349,7 @@ http://www.msmarco.org/dataset.aspx"""
                         if qid in med_qids():
                             fout.write(line)
 
-            if not self.config['init_skip_msrun']:
+            if not self.init_skip_msrun:
                 file = os.path.join(base_path, 'train_med.msrun')
                 if not os.path.exists(file):
                     with util.finialized_file(file, 'wt') as fout, open(os.path.join(base_path, 'train.msrun'), 'rt') as fin:

@@ -1,36 +1,74 @@
-# OpenNIR
-An end-to-end neural ad-hoc ranking pipeline.
+# OpenNIR (experimaestro version)
+
+This is an adaptation of OpenNIR using experiment manager tools (experimaestro and datamaestro).
+
+OpenNIR is an end-to-end neural ad-hoc ranking pipeline.
 
 ## Quick start
 
-*OpenNIR requires Python 3.6* (not tested with other versions).
+This is an example for training 
 
-Install dependencies
+```python
+import click
+from pathlib import Path
+import os
+from datamaestro import prepare_dataset
+import logging
+import multiprocessing
 
-```bash
-pip install -r requirements.txt
+
+logging.basicConfig(level=logging.INFO)
+CPU_COUNT = multiprocessing.cpu_count()
+
+
+from experimaestro import experiment
+from experimaestro_ir.evaluation import TrecEval
+from experimaestro_ir.models import BM25
+from experimaestro_ir.anserini import IndexCollection, SearchCollection
+
+from onir.rankers.drmm import Drmm
+from onir.trainers import PointwiseTrainer
+from onir.datasets.robust import RobustDataset
+from onir.pipelines import Learner
+from onir.random import Random
+from onir.vocab import WordvecUnkVocab
+from onir.predictors import Reranker
+
+# --- Defines the experiment
+
+
+@click.option("--small", is_flag=True, help="Reduce the number of iterations (testing)")
+@click.option("--debug", is_flag=True, help="Print debug information")
+@click.option("--port", type=int, default=12345, help="Port for monitoring")
+@click.argument("workdir", type=Path)
+@click.command()
+def cli(port, workdir, debug, small):
+    """Runs an experiment"""
+    logging.getLogger().setLevel(logging.DEBUG if debug else logging.INFO)
+
+    # Sets the working directory and the name of the xp
+    with experiment(workdir, "drmm", port=port) as xp:
+        xp.setenv("JAVA_HOME", os.environ["JAVA_HOME"])
+        
+        # Prepare the collection
+        wordembs = prepare_dataset("edu.stanford.glove.6b.50")        
+        random = Random()
+        vocab = WordvecUnkVocab(data=wordembs, random=random)
+        robust = RobustDataset.prepare().submit()
+
+        # Train with OpenNIR DRMM model
+        ranker = Drmm(vocab=vocab).tag("ranker", "drmm")
+        predictor = Reranker()
+        trainer = PointwiseTrainer()
+        learner = Learner(trainer=trainer, random=random, ranker=ranker, valid_pred=predictor, dataset=robust)
+        if small:
+            learner.max_epoch = 2
+        learner.submit()
+
+
+if __name__ == "__main__":
+    cli()
 ```
-
-Train and validate a model (here, ConvKNRM on ANTIQUE):
-
-```bash
-scripts/pipeline.sh config/conv_knrm config/antique
-```
-
-(Performance on the test set can be obtained by adding `pipeline.test=True`)
-
-Grid serach for BM25 over ANTIQUE for comparision with neural model performance:
-
-```bash
-scripts/pipeline.sh config/grid_search config/antique
-```
-
-(Performance on the test set can be obtained by adding `pipeline.test=True`)
-
-Models, datasets, and vocabularies will be saved in `~/data/onir/`. This can be overridden by
-setting `data_dir=~/some/other/place/` as a command line argument, in a configuration file, or in
-the `ONIR_ARGS` environment variable.
-
 
 ## Features
 

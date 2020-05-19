@@ -4,6 +4,7 @@ from experimaestro import task, param, pathargument
 from experimaestro_ir.anserini import Index as AnseriniIndex
 from datamaestro_text.data.trec import TrecAdhocAssessments, TrecAdhocTopics
 from onir import datasets, util, indices, vocab
+from .index_backed import IndexBackedDataset
 from onir.interfaces import trec, plaintext
 
 # from <https://github.com/faneshion/DRMM/blob/9d348640ef8a56a8c1f2fa0754fe87d8bb5785bd/NN4IR.cpp>
@@ -35,26 +36,26 @@ FOLDS['all'] = _ALL
 @pathargument("path_folds", "folds")
 @pathargument("path_topics", "topics")
 @task()
-class RobustDataset(datasets.IndexBackedDataset):
+class RobustDataset(IndexBackedDataset):
     """
     Interface to the TREC Robust 2004 dataset.
      > Ellen M. Voorhees. 2004. Overview of TREC 2004. In TREC.
     """
 
     def __initialize__(self):
-        datasets.IndexBackedDataset.__initialize__(self)
+        IndexBackedDataset.__initialize__(self)
         self.index = indices.AnseriniIndex(self.path_anserini, stemmer='none')
         self.index_stem = indices.AnseriniIndex(self.path_anserini_porter, stemmer='porter')
         self.doc_store = indices.SqliteDocstore(self.path_docs)
 
     @staticmethod
-    def prepare(vocab: vocab.Vocab, **kwargs):
+    def prepare(**kwargs):
         from datamaestro import prepare_dataset
         index = prepare_dataset("ca.uwaterloo.jimmylin.anserini.robust04")
         qrels = prepare_dataset("gov.nist.trec.adhoc.robust.2004.qrels")
         topics = prepare_dataset("gov.nist.trec.adhoc.robust.2004.topics")
         
-        return RobustDataset(anserini_index=index, assessments=qrels, queries=topics, vocab=vocab, **kwargs)
+        return RobustDataset(anserini_index=index, assessments=qrels, queries=topics, **kwargs)
 
     def _get_index(self, record):
         return self.index
@@ -74,11 +75,11 @@ class RobustDataset(datasets.IndexBackedDataset):
         return result
 
     def qrels(self, fmt='dict'):
-        return self._load_qrels(self.config['subset'], fmt)
+        return self._load_qrels(self.subset, fmt)
 
     @memoize_method
     def _load_qrels(self, subset, fmt):
-        return trec.read_qrels_fmt(self.assessments.path, fmt)
+        return trec.read_qrels_fmt(str(self.assessments.path), fmt)
 
     @memoize_method
     def _load_topics(self):

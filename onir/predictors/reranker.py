@@ -1,11 +1,12 @@
 import os
 import json
 import torch
-from experimaestro import config, param
+from experimaestro import config, param, pathargument
 import onir
 from onir import util, spec, predictors, datasets
 from onir.interfaces import trec, plaintext
-from onir.rankers import Ranker
+from onir.log import Logger
+from onir.rankers.trivial import Trivial
 from onir.util import Device, DEFAULT_DEVICE
 
 @param('batch_size', default=64)
@@ -14,14 +15,18 @@ from onir.util import Device, DEFAULT_DEVICE
 @param('run_threshold', default=0)
 @param('measures', default='map,ndcg,p@20,ndcg@20,mrr')
 @param('source', default='run')
-
-@param('ranker', type=Ranker)
+@pathargument("basepath", "reranker")
 @config()
 class Reranker(predictors.BasePredictor):
     name = None
 
-    def __initialize__(self):
+    def initialize(self, random, ranker, dataset):
+        self.ranker = ranker
         self.input_spec = self.ranker.input_spec()
+        self.logger = Logger(self.__class__.__name__)
+        self._device = self.device(self.logger)
+        self.dataset = dataset
+        self.random = random
 
     def _iter_batches(self, device):
         fields = set(self.input_spec['fields']) | {'query_id', 'doc_id'}
@@ -50,7 +55,7 @@ class Reranker(predictors.BasePredictor):
 
     def _reload_batches(self):
         while True:
-            it = self._iter_batches()
+            it = self._iter_batches(self._device)
             yield it
 
     def pred_ctxt(self):
@@ -59,15 +64,16 @@ class Reranker(predictors.BasePredictor):
         else:
             datasource = self._reload_batches()
 
-        return PredictorContext(self, datasource, self.device)
 
-    def iter_scores(self, ranker, datasource):
-        if ranker.name == 'trivial' and not ranker.config['neg'] and not ranker.config['qsum'] and not ranker.config['max']:
+        return PredictorContext(self, datasource, self._device)
+
+    def iter_scores(self, ranker, datasource, device):
+        if isinstance(ranker, Trivial) and not ranker.neg and not ranker.qsum and not ranker.max:
             for qid, values in self.dataset.run().items():
                 for did, score in values.items():
                     yield qid, did, score
             return
-        if ranker.name == 'trivial' and not ranker.config['neg'] and not ranker.config['qsum'] and ranker.config['max']:
+        if isinstance(ranker, Trivial) and not ranker.neg and not ranker.qsum and ranker.max:
             qrels = self.dataset.qrels()
             for qid, values in self.dataset.run().items():
                 q_qrels = qrels.get(qid, {})
@@ -108,17 +114,13 @@ class PredictorContext:
     def __call__(self, ctxt):
         cached = True
         epoch = ctxt['epoch']
-        base_path = os.path.join(ctxt['base_path'], self.pred.dataset.path_segment())
-        if self.pred.config['source'] == 'run' and self.pred.config['run_threshold'] > 0:
-            base_path = '{p}_runthreshold-{run_threshold}'.format(p=base_path, **self.pred.config)
+        base_path = str(self.pred.basepath)
         os.makedirs(os.path.join(base_path, 'runs'), exist_ok=True)
-        with open(os.path.join(base_path, 'config.json'), 'wt') as f:
-            json.dump(self.pred.dataset.config, f)
         run_path = os.path.join(base_path, 'runs', f'{epoch}.run')
         if os.path.exists(run_path):
             run = trec.read_run_dict(run_path)
         else:
-            if self.pred.config['source'] == 'run' and self.pred.config['run_threshold'] > 0:
+            if self.pred.source == 'run' and self.pred.run_threshold > 0:
                 official_run = self.pred.dataset.run('dict')
             else:
                 official_run = {}
@@ -148,7 +150,7 @@ class PredictorContext:
             'cached': cached
         }
 
-        result['metrics'] = {m: None for m in self.pred.config['measures'].split(',') if m}
+        result['metrics'] = {m: None for m in self.pred.measures.split(',') if m}
         result['metrics_by_query'] = {m: None for m in result['metrics']}
 
         missing_metrics = self.load_metrics(result)
@@ -163,7 +165,7 @@ class PredictorContext:
             self.write_missing_metrics(result, missing_metrics)
 
         try:
-            if ctxt['ranker']().config.get('add_runscore'):
+            if ctxt['ranker']().add_runscore:
                 result['metrics']['runscore_alpha'] = torch.sigmoid(ctxt['ranker']().runscore_alpha).item()
                 rs_alpha_f = os.path.join(ctxt['base_path'], 'runscore_alpha.txt')
                 with open(rs_alpha_f, 'at') as f:

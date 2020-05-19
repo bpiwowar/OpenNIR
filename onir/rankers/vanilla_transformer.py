@@ -32,9 +32,9 @@ class VanillaTransformer(rankers.Ranker):
             logger.warn("It's usually bad to use VanillaBert with non-trainable embeddings. "
                         "Consider setting `vocab.train=True`")
         self.dropout = torch.nn.Dropout(0.1) # self.encoder.bert.config.hidden_dropout_prob
-        if self.config['combine'] == 'linear':
-            self.ranker = torch.nn.Linear(self.encoder.dim(), self.config['outputs'])
-        elif self.config['combine'] in ('prob', 'logprob'):
+        if self.combine == 'linear':
+            self.ranker = torch.nn.Linear(self.encoder.dim(), self.outputs)
+        elif self.combine in ('prob', 'logprob'):
             self.ranker = torch.nn.Linear(self.encoder.dim(), 2)
         else:
             raise ValueError('unsupported combine={combine}'.format(**self.config))
@@ -48,12 +48,12 @@ class VanillaTransformer(rankers.Ranker):
 
     def path_segment(self):
         result = '{name}_{qlen}q_{dlen}d'.format(name=self.name, **self.config)
-        if self.config['combine'] == 'linear':
-            if self.config['outputs'] > 1:
+        if self.combine == 'linear':
+            if self.outputs > 1:
                 result += '_{combine}-{outputs}'.format(**self.config)
         else:
             result += '_{combine}'.format(**self.config)
-        if self.config['add_runscore']:
+        if self.add_runscore:
             result += '_addrun'
         return result
 
@@ -61,8 +61,8 @@ class VanillaTransformer(rankers.Ranker):
         pooled_output = self.encoder.enc_query_doc(**inputs)['cls'][-1]
         pooled_output = self.dropout(pooled_output)
         result = self.ranker(pooled_output)
-        if self.config['combine'] == 'prob':
+        if self.combine == 'prob':
             result = result.softmax(dim=1)[:, 1]
-        elif self.config['combine'] == 'logprob':
+        elif self.combine == 'logprob':
             result = result.log_softmax(dim=1)[:, 1]
         return result

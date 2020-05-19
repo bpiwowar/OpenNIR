@@ -57,7 +57,7 @@ https://catalog.ldc.upenn.edu/LDC2008T19"""
         return self.index_stem
 
     def qrels(self, fmt='dict'):
-        return self._load_qrels(self.config['subset'], fmt=fmt)
+        return self._load_qrels(self.subset, fmt=fmt)
 
     def _load_run_base(self, index, subset, rankfn, ranktopk, fmt='dict', fscache=False, memcache=True):
         return super()._load_run_base(index, subset, rankfn, ranktopk, fmt, fscache, memcache)
@@ -70,7 +70,7 @@ https://catalog.ldc.upenn.edu/LDC2008T19"""
             return trec.read_qrels_fmt(path, fmt)
 
     def load_queries(self) -> dict:
-        return self._load_queries_base(self.config['subset'])
+        return self._load_queries_base(self.subset)
 
     @memoize_method
     def _load_queries_base(self, subset):

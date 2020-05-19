@@ -4,6 +4,7 @@ from torch.nn import functional as F
 from onir import rankers, util, modules
 
 
+# TODO: adapt
 @rankers.register('matchpyramid')
 class MatchPyramid(rankers.Ranker):
     """
@@ -53,6 +54,6 @@ class MatchPyramid(rankers.Ranker):
 
     def path_segment(self):
         result = '{name}_{qlen}q_{dlen}d_conv-{conv_q}-{conv_d}_pool-{pool_q}-{pool_d}_filters-{nfilters}_{combine}'.format(name=self.name, **self.config)
-        if self.config['add_runscore']:
+        if self.add_runscore:
             result += '_addrun'
         return result

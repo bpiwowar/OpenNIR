@@ -1,33 +1,34 @@
+import json
+import os
 from experimaestro import task, param
 from onir import predictors, log
 from onir.trainers import Trainer
 from onir.datasets import Dataset
 from onir.rankers import Ranker
 from onir.random import Random
+import onir.trainers.base
 
 @param('max_epoch', default=1000)
 @param('early_stop', default=20)
 @param('warmup', default=-1)
-@param('val_metric', default='map')
 @param('purge_weights', default=True)
-@param('test', default=False)
 @param('initial_eval', default=False)
 @param('only_cached', default=False)
+
+@param('val_metric', default='map')
+@param("valid_pred", type=predictors.BasePredictor)
 
 @param("dataset", type=Dataset)
 @param("ranker", type=Ranker)
 @param("trainer", type=Trainer)
 @param("random", type=Random)
-@param("valid_pred", type=predictors.BasePredictor)
 @task()
 class Learner:
-    """A learner pipeline (code taken from `DefaultPipeline`)
+    """A learner pipeline 
+    
+    Code taken from `DefaultPipeline`, moving the testing part into another 
+    task
     """
-    # def __init__(self, config, trainer, valid_pred, test_pred, logger):
-    #     self.trainer = trainer
-    #     self.valid_pred = valid_pred
-    #     self.test_pred = test_pred
-
     def execute(self):
         self.logger = log.Logger(self.__class__.__name__)
         self.ranker.initialize(self.random.state)
@@ -95,7 +96,7 @@ class Learner:
                     break
 
             if train_ctxt['epoch'] >= self.max_epoch:
-                self.logger.warn('stopping after epoch {max_epoch} (max_epoch)'.format(**self.config))
+                self.logger.warn('stopping after epoch {max_epoch} (max_epoch)'.format(**self.__dict__))
                 break
 
             prev_train_ctxt = train_ctxt
@@ -120,7 +121,7 @@ class Learner:
                 'test_metrics': test_ctxt['metrics'],
             })
 
-        with open(util.path_modelspace() + '/val_test.jsonl', 'at') as f:
+        with open(self.__taskdir__ / 'val_test.jsonl', 'at') as f:
             json.dump(file_output, f)
             f.write('\n')
 

@@ -78,17 +78,17 @@ class WordvecVocab(vocab.Vocab):
         return len(self._terms)
 
 
-@vocab.register('wordvec_unk')
+@config()
 class WordvecUnkVocab(WordvecVocab):
     """
     A vocabulary in which all unknown terns are given the same token (UNK; 0), with random weights
     """
-    def __init__(self, config, logger, random):
-        super().__init__(config, logger, random)
+    def __initialize__(self):
+        super().__initialize__()
         self._terms = [None] + self._terms
         for term in self._term2idx:
             self._term2idx[term] += 1
-        unk_weights = random.normal(scale=0.5, size=(1, self._weights.shape[1]))
+        unk_weights = self.random.state.normal(scale=0.5, size=(1, self._weights.shape[1]))
         self._weights = np.concatenate([unk_weights, self._weights])
 
     def tok2id(self, tok):
@@ -101,7 +101,7 @@ class WordvecUnkVocab(WordvecVocab):
         return len(self._terms) + 1
 
 
-@vocab.register('wordvec_hash')
+# TODO: adapt ('wordvec_hash')
 class WordvecHashVocab(WordvecVocab):
     """
     A vocabulary in which all unknown terms are assigned a position in a flexible cache based on
@@ -117,8 +117,8 @@ class WordvecHashVocab(WordvecVocab):
         })
         return result
 
-    def __init__(self, config, logger, random):
-        super().__init__(config, logger, random)
+    def __initialize__(self, config, logger, random):
+        super().__initialize__(config, logger, random)
         self._hashspace = config['hashspace']
         hash_weights = random.normal(scale=config['init_stddev'],
                                      size=(self._hashspace, self._weights.shape[1]))

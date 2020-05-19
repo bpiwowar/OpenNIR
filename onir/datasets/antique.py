@@ -35,7 +35,7 @@ https://ciir.cs.umass.edu/downloads/Antique/readme.txt"""
         self.doc_store = indices.SqliteDocstore(os.path.join(base_path, 'docs.sqlite'))
 
     def qrels(self, fmt='dict'):
-        return self._load_qrels(self.config['subset'], fmt)
+        return self._load_qrels(self.subset, fmt)
 
     @memoize_method
     def _load_qrels(self, subset, fmt):

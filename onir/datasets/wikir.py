@@ -46,28 +46,28 @@ https://github.com/getalp/wikIR"""
         self.docstore59k = indices.SqliteDocstore(os.path.join(base_path, 'docs.59k.sqllite'))
 
     def _get_index(self, record):
-        if self.config['collection'] == '1k':
+        if self.collection == '1k':
             return self.index1k
-        if self.config['collection'] == '59k':
+        if self.collection == '59k':
             return self.index59k
         raise ValueError('unsupported collection')
 
     def _get_docstore(self):
-        if self.config['collection'] == '1k':
+        if self.collection == '1k':
             return self.docstore1k
-        if self.config['collection'] == '59k':
+        if self.collection == '59k':
             return self.docstore59k
         raise ValueError('unsupported collection')
 
     def _get_index_for_batchsearch(self):
-        if self.config['collection'] == '1k':
+        if self.collection == '1k':
             return self.index1k_stem
-        if self.config['collection'] == '59k':
+        if self.collection == '59k':
             return self.index59k_stem
         raise ValueError('unsupported collection')
 
     def qrels(self, fmt='dict'):
-        return self._load_qrels(self.config['subset'], fmt=fmt)
+        return self._load_qrels(self.subset, fmt=fmt)
 
     @memoize_method
     def _load_qrels(self, subset, fmt):
@@ -78,7 +78,7 @@ https://github.com/getalp/wikIR"""
             return trec.read_qrels_fmt(path, fmt)
 
     def load_queries(self) -> dict:
-        return self._load_queries_base(self.config['subset'])
+        return self._load_queries_base(self.subset)
 
     @memoize_method
     def _load_queries_base(self, subset):

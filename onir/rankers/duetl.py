@@ -3,6 +3,7 @@ from torch import nn
 from onir import rankers, modules
 
 
+# TODO: adapt
 @rankers.register('duetl')
 class DuetL(rankers.Ranker):
     """
@@ -39,9 +40,9 @@ class DuetL(rankers.Ranker):
     def _forward(self, **inputs):
         BATCH = inputs['query_tok'].shape[0]
         result = self.simmat.encode_query_doc(self.encoder, **inputs)
-        result = result.reshape(BATCH, 1, self.config['qlen'], self.config['dlen'])
+        result = result.reshape(BATCH, 1, self.qlen, self.dlen)
         result = torch.tanh(self.conv(result))
-        result = result.reshape(BATCH, self.config['qlen'] * self.config['nfilters'])
+        result = result.reshape(BATCH, self.qlen * self.nfilters)
         result = torch.tanh(self.combine1(result))
         result = torch.tanh(self.combine2(result))
         result = self.dropout(result)
@@ -50,6 +51,6 @@ class DuetL(rankers.Ranker):
 
     def path_segment(self):
         result = '{name}_{qlen}q_{dlen}d_{nfilters}'.format(name=self.name, **self.config)
-        if self.config['add_runscore']:
+        if self.add_runscore:
             result += '_addrun'
         return result

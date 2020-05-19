@@ -9,9 +9,9 @@ from onir import trainers, spec, datasets, log
 @param("minrel", default=-999)
 @config()
 class PointwiseTrainer(trainers.Trainer):
-    def __initialize__(self):
-        super().__initialize__()
-        self.random = self.random.state
+    def initialize(self, random, ranker, dataset):
+        super().initialize(random, ranker, dataset)
+        self.random = random
         self.input_spec = self.ranker.input_spec()
         self.iter_fields = self.input_spec['fields'] | {'relscore'}
         self.train_iter_core = datasets.record_iter(self.dataset,

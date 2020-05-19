@@ -1,17 +1,16 @@
 from experimaestro import config, param
 import torch
 from torch import nn
-from onir.random import Random
 
 @param("qlen", default=20)
 @param("dlen", default=2000)
 @param("add_runscore", default=False)
-@param("random", type=Random)
 @config()
 class Ranker(nn.Module):
-    def __initialize__(self):
+    def initialize(self, random):
         nn.Module.__init__(self)
-        seed = self.random.state.randint((2**32)-1)
+        self.random = random
+        seed = self.random.randint((2**32)-1)
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.deterministic = True

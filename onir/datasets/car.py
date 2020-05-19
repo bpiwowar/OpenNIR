@@ -45,7 +45,7 @@ http://trec-car.cs.unh.edu/"""
 
     def path_segment(self):
         result = '{name}_{subset}_{rankfn}.{ranktopk}'.format(name=self.name, **self.config)
-        if self.config['rel'] != 'auto':
+        if self.rel != 'auto':
             result += '_{rel}'.format(**self.config)
         return result
 
@@ -59,13 +59,13 @@ http://trec-car.cs.unh.edu/"""
         return self.index_stem
 
     def qrels(self, fmt='dict'):
-        return self._load_qrels(self.config['subset'], fmt)
+        return self._load_qrels(self.subset, fmt)
 
     @memoize_method
     def _load_qrels(self, subset, fmt):
         with self.logger.duration('loading qrels'):
             path = util.path_dataset(self)
-            rel = self.config['rel']
+            rel = self.rel
             qrel_file = os.path.join(path, f'{subset}.{rel}.qrels')
             return trec.read_qrels_fmt(qrel_file, fmt)
 

@@ -3,6 +3,7 @@ from torch import nn
 from onir import rankers
 
 
+# TODO: adapt
 @rankers.register('cedr_knrm')
 class CedrKnrm(rankers.knrm.Knrm):
     """

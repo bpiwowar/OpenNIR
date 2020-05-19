@@ -3,7 +3,6 @@ from torch import nn
 from onir import rankers
 
 
-@rankers.register('trivial')
 class Trivial(rankers.Ranker):
     """
     Trivial ranker, which just returns the initial ranking score. Used for comparisions against
@@ -34,19 +33,19 @@ class Trivial(rankers.Ranker):
 
     def path_segment(self):
         result = self.name
-        if self.config['max']:
+        if self.max:
             result += '_max'
-        elif self.config['qsum']:
+        elif self.qsum:
             result += '_qsum'
-        if self.config['neg']:
+        if self.neg:
             result += '_neg'
         return result
 
     def input_spec(self):
         fields = set()
-        if self.config['max']:
+        if self.max:
             fields.add('relscore')
-        elif self.config['qsum']:
+        elif self.qsum:
             fields.add('query_score')
         else:
             fields.add('runscore')
@@ -59,12 +58,12 @@ class Trivial(rankers.Ranker):
         }
 
     def _forward(self, **inputs):
-        if self.config['max']:
+        if self.max:
             result = inputs['relscore']
-        elif self.config['qsum']:
+        elif self.qsum:
             result = inputs['query_score'].sum(dim=1)
         else:
             result = inputs['runscore']
-        if self.config['neg']:
+        if self.neg:
             result = -1. * result
         return result + self._nil

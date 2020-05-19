@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 from experimaestro import argument, config, Choices
 import onir
-from onir import trainers, spec, util, _onir
+from onir import trainers, spec, util
 
 @argument(
     "lossfn", type=str, default="softmax", checker=Choices(['softmax', 'cross_entropy', 'hinge'])
@@ -15,7 +15,7 @@ from onir import trainers, spec, util, _onir
 @argument("unjudged_rel", default=0)
 @argument("num_neg", default=1)
 @argument("margin", default=0.0)
-@config(_onir.trainer.pairwise)
+@config()
 class PairwiseTrainer(trainers.Trainer):
     def __init__(self, logger, train_ds, vocab, random):
         super().__init__(config, ranker, vocab, train_ds, logger, random)
@@ -45,18 +45,18 @@ class PairwiseTrainer(trainers.Trainer):
     def path_segment(self):
         path = super().path_segment()
         pos = 'pos-{pos_source}-{sampling}'.format(**self.config)
-        if self.config['pos_minrel'] != 1:
+        if self.pos_minrel != 1:
             pos += '-minrel{pos_minrel}'.format(**self.config)
         neg = 'neg-{neg_source}'.format(**self.config)
-        if self.config['unjudged_rel'] != 0:
+        if self.unjudged_rel != 0:
             neg += '-unjudged{unjudged_rel}'.format(**self.config)
-        if self.config['num_neg'] != 1:
+        if self.num_neg != 1:
             neg += '-numneg{num_neg}'.format(**self.config)
-        loss = self.config['lossfn']
+        loss = self.lossfn
         if loss == 'hinge':
             loss += '-{margin}'.format(**self.config)
         result = 'pairwise_{path}_{loss}_{pos}_{neg}'.format(**self.config, loss=loss, pos=pos, neg=neg, path=path)
-        if self.config['gpu'] and not self.config['gpu_determ']:
+        if self.gpu and not self.gpu_determ:
             result += '_nondet'
         return result
 
@@ -113,7 +113,7 @@ class PairwiseTrainer(trainers.Trainer):
         return torch.mean(1. - F.softmax(rel_scores_by_record, dim=1)[:, 0])
 
     def hinge(self, rel_scores_by_record):
-        return F.relu(self.config['margin'] - rel_scores_by_record[:, :1] + rel_scores_by_record[:, 1:]).mean()
+        return F.relu(self.margin - rel_scores_by_record[:, :1] + rel_scores_by_record[:, 1:]).mean()
 
     @staticmethod
     def pointwise(rel_scores_by_record):

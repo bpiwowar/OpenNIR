@@ -54,10 +54,10 @@ class Pacrr(rankers.Ranker):
     def input_spec(self):
         result = super().input_spec()
         result['fields'].update({'query_tok', 'doc_tok', 'query_len', 'doc_len'})
-        if self.config['idf']:
+        if self.idf:
             result['fields'].add('query_idf')
         result['dlen_mode'] = 'max' # max pooling means you don't need a fixed dlen
-        result['dlen_min'] = self.config['kmax']
+        result['dlen_min'] = self.kmax
         return result
 
     def _forward(self, **inputs):
@@ -67,22 +67,22 @@ class Pacrr(rankers.Ranker):
 
     def conv_pool(self, simmat, inputs):
         scores = [ng(simmat, inputs['query_len']) for ng in self.ngrams]
-        if self.config['idf']:
+        if self.idf:
             idfs = inputs['query_idf'].reshape(*inputs['query_idf'].shape, 1).softmax(dim=1)
             scores.append(idfs)
         return torch.cat(scores, dim=2)
 
     def path_segment(self):
         result = '{name}_{qlen}q_{dlen}d_ng-{mingram}-{maxgram}_k-{kmax}'.format(name=self.name, **self.config)
-        if self.config['nfilters'] != 32:
+        if self.nfilters != 32:
             result += '_filters-{nfilters}'.format(**self.config)
-        if self.config['combine'] != 'dense32':
+        if self.combine != 'dense32':
             result += '_{combine}'.format(**self.config)
-        if self.config['idf']:
+        if self.idf:
             result += '_idf'
-        if self.config['shuf']:
+        if self.shuf:
             result += '_shuf'
-        if self.config['add_runscore']:
+        if self.add_runscore:
             result += '_addrun'
         return result
 

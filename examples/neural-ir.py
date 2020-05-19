@@ -16,46 +16,43 @@ from experimaestro_ir.models import BM25
 from experimaestro_ir.anserini import IndexCollection, SearchCollection
 
 from onir.rankers.drmm import Drmm
-from onir.trainers import PointwiseTrainer
+from onir.trainers.pointwise import PointwiseTrainer
 from onir.datasets.robust import RobustDataset
-from onir.pipelines import Learner
+from onir.tasks.learner import Learner
 from onir.random import Random
-from onir.vocab import WordvecVocab
-from onir.predictors import Reranker
+from onir.vocab.wordvec_vocab import WordvecUnkVocab
+from onir.predictors.reranker import Reranker
 
 # --- Defines the experiment
 
 
+@click.option("--small", is_flag=True, help="Reduce the number of iterations (testing)")
 @click.option("--debug", is_flag=True, help="Print debug information")
 @click.option("--port", type=int, default=12345, help="Port for monitoring")
 @click.argument("workdir", type=Path)
 @click.command()
-def cli(port, workdir, debug):
+def cli(port, workdir, debug, small):
     """Runs an experiment"""
     logging.getLogger().setLevel(logging.DEBUG if debug else logging.INFO)
 
-    bm25 = BM25()
-
     # Sets the working directory and the name of the xp
-    with experiment(workdir, "index", port=port) as xp:
+    with experiment(workdir, "drmm", port=port) as xp:
         xp.setenv("JAVA_HOME", os.environ["JAVA_HOME"])
-        # Index the collection
+        
+        # Prepare the collection
         wordembs = prepare_dataset("edu.stanford.glove.6b.50")        
         random = Random()
-        vocab = WordvecVocab(data=wordembs)
-        robust = RobustDataset.prepare(vocab).submit()
-
+        vocab = WordvecUnkVocab(data=wordembs, random=random)
+        robust = RobustDataset.prepare().submit()
 
         # Train with OpenNIR DRMM model
-        ranker = Drmm(random=random, vocab=vocab).tag("ranker", "drmm")
-        predictor = Reranker(ranker=ranker)
-        trainer = PointwiseTrainer(random=random, vocab=vocab, ranker=ranker, dataset=robust)
-        learner = Learner(trainer=trainer, valid_pred=predictor).submit()
-
-        # # search = ModelRerank(
-        # #     base=bm25, topics=training_ds.topics, model=learnedmodel
-        # # ).submit()
-        # # eval = TrecEval(assessments=training_ds.assessments, results=search).submit()
+        ranker = Drmm(vocab=vocab).tag("ranker", "drmm")
+        predictor = Reranker()
+        trainer = PointwiseTrainer()
+        learner = Learner(trainer=trainer, random=random, ranker=ranker, valid_pred=predictor, dataset=robust)
+        if small:
+            learner.max_epoch = 2
+        learner.submit()
 
 
 if __name__ == "__main__":

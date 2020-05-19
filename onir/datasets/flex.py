@@ -37,7 +37,7 @@ class FlexDataset(datasets.IndexBackedDataset):
         return '{name}_{subset}'.format(name=self.name, **self.config)
 
     def qrels(self, fmt='dict'):
-        return self._load_qrels(self.config['subset'], fmt)
+        return self._load_qrels(self.subset, fmt)
 
     @memoize_method
     def _load_qrels(self, subset, fmt):
@@ -59,9 +59,9 @@ class FlexDataset(datasets.IndexBackedDataset):
         return {qid: qtext for qid, qtext in plaintext.read_tsv(queries_path)}
 
     def init(self, force=False):
-        base_dir = os.path.join(util.path_dataset(self), self.config['subset'])
+        base_dir = os.path.join(util.path_dataset(self), self.subset)
 
-        if self.config['subset'] == 'dummy':
+        if self.subset == 'dummy':
             datafile = os.path.join(base_dir, 'datafile.tsv')
             qrels = os.path.join(base_dir, 'qrels.txt')
             if not os.path.exists(datafile):

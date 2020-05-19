@@ -8,7 +8,7 @@ from onir.modules import CustomBertModelWrapper
 import tokenizers as tk
 
 
-@vocab.register('bert')
+# TODO: adapt ('bert')
 class BertVocab(vocab.Vocab):
     @staticmethod
     def default_config():
@@ -51,22 +51,22 @@ class BertVocab(vocab.Vocab):
         return {
             'joint': JointBertEncoder,
             'sep': SepBertEncoder,
-        }[self.config['encoding']](self)
+        }[self.encoding](self)
 
     def path_segment(self):
         result = '{name}_{bert_base}'.format(name=self.name, **self.config)
-        if self.config['bert_weights']:
-            result += '_{}'.format(self.config['bert_weights'])
-        if self.config['last_layer']:
-            if self.config['layer'] != -1:
-                result += '_{}last'.format(self.config['layer'])
+        if self.bert_weights:
+            result += '_{}'.format(self.bert_weights)
+        if self.last_layer:
+            if self.layer != -1:
+                result += '_{}last'.format(self.layer)
             else:
                 result += '_last'
-        elif self.config['layer'] != -1:
-            result += '_{}only'.format(self.config['layer'])
-        if self.config['train']:
+        elif self.layer != -1:
+            result += '_{}only'.format(self.layer)
+        if self.train:
             result += '_tr'
-        if self.config['encoding'] != 'joint':
+        if self.encoding != 'joint':
             result += '_{encoding}'.format(**self.config)
         return result
 
