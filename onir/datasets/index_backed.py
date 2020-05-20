@@ -5,14 +5,48 @@ from glob import glob
 import pickle
 from experimaestro import param, config
 from experimaestro_ir.anserini import IndexCollection
-from onir import datasets, util
+from onir import datasets, util, log
 from onir.interfaces import trec
+
+@config()
+class IndexBackedDataset():
+    def __initialize__(self):
+        self.logger = log.easy()
+
+    def subset(self, subset: str, **kwargs):
+        return Dataset(index=self, **kwargs)
+
+    def _init_indices_parallel(self, indices, doc_iter, force):
+        needs_docs = []
+        for index in indices:
+            if force or not index.built():
+                needs_docs.append(index)
+
+        if needs_docs:
+            with contextlib.ExitStack() as stack:
+                doc_iters = util.blocking_tee(doc_iter, len(needs_docs))
+                for idx, it in zip(needs_docs, doc_iters):
+                    stack.enter_context(util.CtxtThread(functools.partial(idx.build, it)))
+
+    def _load_queries_base(self, subset):
+        raise NotImplementedError()
+
+    def _get_index(self, record):
+        raise NotImplementedError
+
+    def _get_docstore(self):
+        raise NotImplementedError
+
+    def _get_index_for_batchsearch(self):
+        raise NotImplementedError
+
 
 @param('rankfn', default='bm25')
 @param('subset', default='all')
 @param('ranktopk', default=1000)
+@param('index', type=IndexBackedDataset)
 @config()
-class IndexBackedDataset(datasets.Dataset):
+class Dataset(datasets.Dataset):
     """
     Dataset base class for using an index as the source of the data.
     """
@@ -20,12 +54,7 @@ class IndexBackedDataset(datasets.Dataset):
     def __initialize__(self):
         super().__initialize__()
         self.run_cache = {}
-
-    def path_segment(self):
-        return '{name}_{subset}_{rankfn}.{ranktopk}'.format(name=self.name, **self.config)
-
-    def collection_path_segment(self):
-        return '{name}'.format(name=self.name, **self.config)
+        self.logger = log.easy()
 
     def build_record(self, fields, **initial_values):
         record = LazyDataRecord(self, **initial_values)
@@ -33,14 +62,14 @@ class IndexBackedDataset(datasets.Dataset):
         return record
 
     def run(self, fmt='dict'):
-        return self._load_run_base(self._get_index_for_batchsearch(),
+        return self._load_run_base(self.index._get_index_for_batchsearch(),
                                    self.subset,
                                    self.rankfn,
                                    self.ranktopk,
                                    fmt=fmt)
 
     def run_dict(self):
-        return self._load_run_base(self._get_index_for_batchsearch(),
+        return self._load_run_base(self.index._get_index_for_batchsearch(),
                                    self.subset,
                                    self.rankfn,
                                    self.ranktopk,
@@ -53,7 +82,7 @@ class IndexBackedDataset(datasets.Dataset):
         return self._get_docstore().num_docs()
 
     def all_query_ids(self):
-        yield from self._load_queries_base(self.subset).keys()
+        yield from self.index._load_queries_base(self.subset).keys()
 
     def num_queries(self):
         return sum(1 for _ in self.all_query_ids())
@@ -111,40 +140,16 @@ class IndexBackedDataset(datasets.Dataset):
                 return trec.read_run_fmt(best_candidate_run, fmt, top=ranktopk)
         return None
 
-    def _init_indices_parallel(self, indices, doc_iter, force):
-        needs_docs = []
-        for index in indices:
-            if force or not index.built():
-                needs_docs.append(index)
-
-        if needs_docs:
-            with contextlib.ExitStack() as stack:
-                doc_iters = util.blocking_tee(doc_iter, len(needs_docs))
-                for idx, it in zip(needs_docs, doc_iters):
-                    stack.enter_context(util.CtxtThread(functools.partial(idx.build, it)))
-
     def _load_run_base_query(self, index, subset, rankfn, ranktopk, run_path, fmt):
-        queries = self._load_queries_base(subset).items()
+        queries = self.index._load_queries_base(subset).items()
         index.batch_query(queries, rankfn, ranktopk, destf=run_path)
         return trec.read_run_fmt(run_path, fmt)
-
-    def _load_queries_base(self, subset):
-        raise NotImplementedError()
-
-    def _get_index(self, record):
-        raise NotImplementedError
-
-    def _get_docstore(self):
-        raise NotImplementedError
-
-    def _get_index_for_batchsearch(self):
-        raise NotImplementedError
 
     def _lang(self):
         return "en"
 
     def _query_rawtext(self, record):
-        return self._load_queries_base(self.subset)[record['query_id']]
+        return self.index._load_queries_base(self.subset)[record['query_id']]
 
     def _query_text(self, record):
         return tuple(self.vocab.tokenize(record['query_rawtext']))
@@ -153,7 +158,7 @@ class IndexBackedDataset(datasets.Dataset):
         return [self.vocab.tok2id(t) for t in record['query_text']]
 
     def _query_idf(self, record):
-        index = self._get_index(record)
+        index = self.index._get_index(record)
         return [index.term2idf(t) for t in record['query_text']]
 
     def _query_len(self, record):
@@ -163,11 +168,11 @@ class IndexBackedDataset(datasets.Dataset):
         return self._lang()
 
     def _query_score(self, record):
-        index = self._get_index(record)
+        index = self.index._get_index(record)
         return index.get_query_doc_scores(record['query_text'], record['doc_id'], self.rankfn)[1]
 
     def _doc_rawtext(self, record):
-        docstore = self._get_docstore()
+        docstore = self.index._get_docstore()
         return docstore.get_raw(record['doc_id'])
 
     def _doc_text(self, record):
@@ -177,7 +182,7 @@ class IndexBackedDataset(datasets.Dataset):
         return [self.vocab.tok2id(t) for t in record['doc_text']]
 
     def _doc_idf(self, record):
-        index = self._get_index(record)
+        index = self.index._get_index(record)
         return [index.term2idf(t) for t in record['doc_rawtext']]
 
     def _doc_len(self, record):
@@ -187,11 +192,14 @@ class IndexBackedDataset(datasets.Dataset):
         return self._lang()
 
     def _runscore(self, record):
-        index = self._get_index(record)
+        index = self.index._get_index(record)
         return index.get_query_doc_scores(record['query_text'], record['doc_id'], self.rankfn)[0]
 
     def _relscore(self, record):
         return float(self.qrels('dict').get(record['query_id'], {}).get(record['doc_id'], -999))
+
+    def qrels(self, fmt='dict'):
+        return self.index.qrels(fmt=fmt)
 
 
 class LazyDataRecord:

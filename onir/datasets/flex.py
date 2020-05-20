@@ -33,9 +33,6 @@ class FlexDataset(datasets.IndexBackedDataset):
         self.index_stem = indices.AnseriniIndex(os.path.join(base_path, 'anserini.porter'), stemmer='porter')
         self.doc_store = indices.SqliteDocstore(os.path.join(base_path, 'docs.sqllite'))
 
-    def collection_path_segment(self):
-        return '{name}_{subset}'.format(name=self.name, **self.config)
-
     def qrels(self, fmt='dict'):
         return self._load_qrels(self.subset, fmt)
 

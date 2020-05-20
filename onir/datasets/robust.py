@@ -1,6 +1,6 @@
 import os
 from pytools import memoize_method
-from experimaestro import task, param, pathargument
+from experimaestro import task, param, pathargument, progress
 from experimaestro_ir.anserini import Index as AnseriniIndex
 from datamaestro_text.data.trec import TrecAdhocAssessments, TrecAdhocTopics
 from onir import datasets, util, indices, vocab
@@ -23,8 +23,6 @@ for i in range(len(FOLDS)):
     FOLDS['va' + _FOLD_IDS[i]] = FOLDS[_FOLD_IDS[i-1]]
 FOLDS['all'] = _ALL
 
-@param('subset', default='all')
-@param('ranktopk', default=100)
 
 @param('anserini_index', type=AnseriniIndex)
 @param('queries', type=TrecAdhocTopics)
@@ -37,10 +35,7 @@ FOLDS['all'] = _ALL
 @pathargument("path_topics", "topics")
 @task()
 class RobustDataset(IndexBackedDataset):
-    """
-    Interface to the TREC Robust 2004 dataset.
-     > Ellen M. Voorhees. 2004. Overview of TREC 2004. In TREC.
-    """
+    """Prepares the Robust dataset from a pre-computed index"""
 
     def __initialize__(self):
         IndexBackedDataset.__initialize__(self)
@@ -56,6 +51,7 @@ class RobustDataset(IndexBackedDataset):
         topics = prepare_dataset("gov.nist.trec.adhoc.robust.2004.topics")
         
         return RobustDataset(anserini_index=index, assessments=qrels, queries=topics, **kwargs)
+
 
     def _get_index(self, record):
         return self.index
@@ -107,6 +103,8 @@ class RobustDataset(IndexBackedDataset):
         # Using the trick here from capreolus, pulling document content out of public index:
         # <https://github.com/capreolus-ir/capreolus/blob/d6ae210b24c32ff817f615370a9af37b06d2da89/capreolus/collection/robust04.yaml#L15>
         index = indices.AnseriniIndex(self.anserini_index.path)
-        for did in self.logger.pbar(index.docids(), desc='documents'):
+        total = index.num_docs()
+        for ix, did in enumerate(self.logger.pbar(index.docids(), desc='documents')):
+            progress(ix/total)
             raw_doc = index.get_raw(did)
             yield indices.RawDoc(did, raw_doc)

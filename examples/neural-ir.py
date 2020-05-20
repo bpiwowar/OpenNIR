@@ -1,27 +1,22 @@
-import click
-from pathlib import Path
-import os
-from datamaestro import prepare_dataset
 import logging
-import multiprocessing
+import os
+from pathlib import Path
 
+import click
+
+from datamaestro import prepare_dataset
+from experimaestro import experiment
+from onir.datasets.robust import RobustDataset
+from onir.predictors.reranker import Reranker
+from onir.random import Random
+from onir.rankers.drmm import Drmm
+from onir.tasks.learner import Learner
+from onir.trainers.pointwise import PointwiseTrainer
+from onir.vocab.wordvec_vocab import WordvecUnkVocab
 
 logging.basicConfig(level=logging.INFO)
-CPU_COUNT = multiprocessing.cpu_count()
 
 
-from experimaestro import experiment
-from experimaestro_ir.evaluation import TrecEval
-from experimaestro_ir.models import BM25
-from experimaestro_ir.anserini import IndexCollection, SearchCollection
-
-from onir.rankers.drmm import Drmm
-from onir.trainers.pointwise import PointwiseTrainer
-from onir.datasets.robust import RobustDataset
-from onir.tasks.learner import Learner
-from onir.random import Random
-from onir.vocab.wordvec_vocab import WordvecUnkVocab
-from onir.predictors.reranker import Reranker
 
 # --- Defines the experiment
 
@@ -49,10 +44,14 @@ def cli(port, workdir, debug, small):
         ranker = Drmm(vocab=vocab).tag("ranker", "drmm")
         predictor = Reranker()
         trainer = PointwiseTrainer()
-        learner = Learner(trainer=trainer, random=random, ranker=ranker, valid_pred=predictor, dataset=robust)
+        learner = Learner(trainer=trainer, random=random, ranker=ranker, valid_pred=predictor, 
+            train_dataset=robust.subset('trf1'), val_dataset=robust.subset('vaf1'))
         if small:
             learner.max_epoch = 2
-        learner.submit()
+        model = learner.submit()
+
+        # Evaluate
+        # Evaluate(dataset=robust.subset('f1'), model=model).submit()
 
 
 if __name__ == "__main__":

@@ -27,13 +27,6 @@ class RandomDataset(datasets.Dataset):
     def all_query_ids(self):
         return []
 
-    def path_segment(self):
-        result = '{name}_{qlen}q_{dlen}d_{count}c'.format(name=self.name, **self.config)
-        return result
-
-    def collection_path_segment(self):
-        return self.path_segment()
-
     def build_record(self, fields, **initial_values):
         result = dict(initial_values)
         for field in sorted(fields):

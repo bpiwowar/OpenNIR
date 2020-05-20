@@ -3,22 +3,16 @@ from onir import util, vocab, log
 
 @config()
 class Dataset:
-    name = None
-    DUA = None
-
     def __initialize__(self):
         self.logger = log.Logger(self.__class__.__name__)
+
+    def initialize(self, vocab):
+        self.vocab = vocab
 
     def qrels(self, fmt='dict'):
         raise NotImplementedError
 
     def run(self, fmt='dict'):
-        raise NotImplementedError
-
-    def path_segment(self):
-        raise NotImplementedError
-
-    def collection_path_segment(self):
         raise NotImplementedError
 
     def build_record(self, fields, **initial_values):

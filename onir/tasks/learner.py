@@ -1,6 +1,6 @@
 import json
 import os
-from experimaestro import task, param
+from experimaestro import task, param, progress
 from onir import predictors, log
 from onir.trainers import Trainer
 from onir.datasets import Dataset
@@ -16,9 +16,10 @@ import onir.trainers.base
 @param('only_cached', default=False)
 
 @param('val_metric', default='map')
+@param("val_dataset", type=Dataset)
 @param("valid_pred", type=predictors.BasePredictor)
 
-@param("dataset", type=Dataset)
+@param("train_dataset", type=Dataset)
 @param("ranker", type=Ranker)
 @param("trainer", type=Trainer)
 @param("random", type=Random)
@@ -32,9 +33,10 @@ class Learner:
     def execute(self):
         self.logger = log.Logger(self.__class__.__name__)
         self.ranker.initialize(self.random.state)
-        self.trainer.initialize(self.random.state, self.ranker, self.dataset)
-        self.valid_pred.initialize(self.random.state, self.ranker, self.dataset)
-        self.dataset.vocab = self.ranker.vocab
+        self.trainer.initialize(self.random.state, self.ranker, self.train_dataset)
+        self.valid_pred.initialize(self.random.state, self.ranker, self.val_dataset)
+        self.train_dataset.initialize(self.ranker.vocab)
+        self.val_dataset.initialize(self.ranker.vocab)
 
         validator = self.valid_pred.pred_ctxt()
 
@@ -45,8 +47,9 @@ class Learner:
             'validation_metric': self.val_metric
         }
 
-        for train_ctxt in self.trainer.iter_train(only_cached=self.only_cached):
 
+        for train_it, train_ctxt in enumerate(self.trainer.iter_train(only_cached=self.only_cached)):
+            progress(train_it / self.max_epoch)
             if prev_train_ctxt is not None and top_epoch is not None and prev_train_ctxt is not top_train_ctxt:
                 self._purge_weights(prev_train_ctxt)
 
@@ -61,6 +64,7 @@ class Learner:
             if train_ctxt['epoch'] == -1 and not self.initial_eval:
                 continue
 
+            # Compute validation metrics
             valid_ctxt = dict(validator(train_ctxt))
 
             message = self._build_valid_msg(valid_ctxt)
