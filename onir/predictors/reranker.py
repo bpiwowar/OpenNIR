@@ -118,6 +118,7 @@ class PredictorContext:
         os.makedirs(os.path.join(base_path, 'runs'), exist_ok=True)
         run_path = os.path.join(base_path, 'runs', f'{epoch}.run')
         if os.path.exists(run_path):
+            # Use cached run file
             run = trec.read_run_dict(run_path)
         else:
             if self.pred.source == 'run' and self.pred.run_threshold > 0:

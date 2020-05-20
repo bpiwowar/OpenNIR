@@ -1,6 +1,6 @@
 import json
 import os
-from experimaestro import task, param, progress
+from experimaestro import task, param, progress, pathargument
 from onir import predictors, log
 from onir.trainers import Trainer
 from onir.datasets import Dataset
@@ -23,6 +23,8 @@ import onir.trainers.base
 @param("ranker", type=Ranker)
 @param("trainer", type=Trainer)
 @param("random", type=Random)
+
+@pathargument("valtest_path", "val_test.jsonl")
 @task()
 class Learner:
     """A learner pipeline 
@@ -48,8 +50,10 @@ class Learner:
         }
 
 
-        for train_it, train_ctxt in enumerate(self.trainer.iter_train(only_cached=self.only_cached)):
-            progress(train_it / self.max_epoch)
+        for train_ctxt in self.trainer.iter_train(only_cached=self.only_cached):
+            # Report progress
+            progress(train_ctxt['epoch'] / self.max_epoch)
+
             if prev_train_ctxt is not None and top_epoch is not None and prev_train_ctxt is not top_train_ctxt:
                 self._purge_weights(prev_train_ctxt)
 
@@ -113,28 +117,13 @@ class Learner:
             'valid_metrics': top_valid_ctxt['metrics'],
         })
 
-        if self.test:
-            top_train_ctxt['ranker'] = onir.trainers.base._load_ranker(top_train_ctxt['ranker'](), top_train_ctxt['ranker_path'])
 
-            with self.logger.duration('testing'):
-                test_ctxt = self.test_pred.run(top_train_ctxt)
-
-            file_output.update({
-                'test_ds': self.test_pred.dataset.path_segment(),
-                'test_run': test_ctxt['run_path'],
-                'test_metrics': test_ctxt['metrics'],
-            })
-
-        with open(self.__taskdir__ / 'val_test.jsonl', 'at') as f:
+        with open(self.valtest_path, 'at') as f:
             json.dump(file_output, f)
             f.write('\n')
 
         self.logger.info('valid run at {}'.format(valid_ctxt['run_path']))
-        if self.test:
-            self.logger.info('test run at {}'.format(test_ctxt['run_path']))
         self.logger.info('valid ' + self._build_valid_msg(top_valid_ctxt))
-        if self.test:
-            self.logger.info('test  ' + self._build_valid_msg(test_ctxt))
 
     def _build_train_msg(self, ctxt):
         delta_acc = ctxt['acc'] - ctxt['unsup_acc']
