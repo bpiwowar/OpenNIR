@@ -30,3 +30,6 @@ pyjnius==1.2.1
 # misc
 pytools==2018.5.2
 cached-property==1.5.1
+
+# Experimaestro-ir
+git+https://github.com/bpiwowar/experimaestro-ir.git

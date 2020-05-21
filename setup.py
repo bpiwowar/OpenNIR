@@ -20,8 +20,7 @@ setup(
         "Documentation": "http://opennir.net/",
         "Source": "https://github.com/bpiwowar/OpenNIR"
     },
-    install_requires=[
-    ],
+    install_requires=(basepath / "requirements.txt").read_text(),
     entry_points={
         "console_scripts": [
             "onir_init_dataset=onir.bin.init_dataset:main",
