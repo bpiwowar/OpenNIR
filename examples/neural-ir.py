@@ -5,6 +5,7 @@ from pathlib import Path
 import click
 
 from datamaestro import prepare_dataset
+from experimaestro.click import forwardoption
 from experimaestro import experiment
 from onir.datasets.robust import RobustDataset
 from onir.predictors.reranker import Reranker
@@ -22,12 +23,12 @@ logging.basicConfig(level=logging.INFO)
 # --- Defines the experiment
 
 
-@click.option("--max-epochs", is_flag=True, help="Maximum number of epochs")
+@forwardoption.max_epoch(Learner)
 @click.option("--debug", is_flag=True, help="Print debug information")
 @click.option("--port", type=int, default=12345, help="Port for monitoring")
 @click.argument("workdir", type=Path)
 @click.command()
-def cli(port, workdir, debug, max_epochs):
+def cli(port, workdir, debug, max_epoch):
     """Runs an experiment"""
     logging.getLogger().setLevel(logging.DEBUG if debug else logging.INFO)
 
@@ -46,11 +47,11 @@ def cli(port, workdir, debug, max_epochs):
         predictor = Reranker()
         trainer = PointwiseTrainer()
         learner = Learner(trainer=trainer, random=random, ranker=ranker, valid_pred=predictor, 
-            train_dataset=robust.subset('trf1'), val_dataset=robust.subset('vaf1'), max_epochs=max_epochs)
+            train_dataset=robust.subset('trf1'), val_dataset=robust.subset('vaf1'), max_epoch=max_epoch)
         model = learner.submit()
 
         # Evaluate
-        Evaluate(dataset=robust.subset('f1'), model=model).submit()
+        Evaluate(dataset=robust.subset('f1'), model=model, predictor=predictor).submit()
 
 
 if __name__ == "__main__":

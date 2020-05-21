@@ -8,7 +8,7 @@ from onir.rankers import Ranker
 from onir.random import Random
 import onir.trainers.base
 
-@param('max_epoch', default=1000)
+@param('max_epoch', default=1000, help="Maximum training epoch")
 @param('early_stop', default=20)
 @param('warmup', default=-1)
 @param('purge_weights', default=True)
@@ -108,17 +108,18 @@ class Learner:
                 break
 
             prev_train_ctxt = train_ctxt
-
+            
         self.logger.info('top validation epoch={} {}={}'.format(top_epoch, self.val_metric, top_value))
 
         file_output.update({
             'valid_epoch': top_epoch,
             'valid_run': top_valid_ctxt['run_path'],
+            'valid_path': top_train_ctxt['ranker_path'],
             'valid_metrics': top_valid_ctxt['metrics'],
         })
 
 
-        with open(self.valtest_path, 'at') as f:
+        with open(self.valtest_path, 'wt') as f:
             json.dump(file_output, f)
             f.write('\n')
 

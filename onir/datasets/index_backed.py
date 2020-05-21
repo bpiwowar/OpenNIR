@@ -14,7 +14,7 @@ class IndexBackedDataset():
         self.logger = log.easy()
 
     def subset(self, subset: str, **kwargs):
-        return Dataset(index=self, **kwargs)
+        return Dataset(index=self, subset=subset, **kwargs)
 
     def _init_indices_parallel(self, indices, doc_iter, force):
         needs_docs = []

@@ -114,6 +114,7 @@ class PredictorContext:
     def __call__(self, ctxt):
         cached = True
         epoch = ctxt['epoch']
+        # FIXME: base_path should not be set here
         base_path = str(self.pred.basepath)
         os.makedirs(os.path.join(base_path, 'runs'), exist_ok=True)
         run_path = os.path.join(base_path, 'runs', f'{epoch}.run')
