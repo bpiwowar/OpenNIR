@@ -2,10 +2,8 @@ import logging
 import os
 from pathlib import Path
 
-import click
-
 from datamaestro import prepare_dataset
-from experimaestro.click import forwardoption
+from experimaestro.click import click, forwardoption
 from experimaestro import experiment
 from onir.datasets.robust import RobustDataset
 from onir.predictors.reranker import Reranker
@@ -19,9 +17,7 @@ from onir.vocab.wordvec_vocab import WordvecUnkVocab
 logging.basicConfig(level=logging.INFO)
 
 
-
 # --- Defines the experiment
-
 
 @forwardoption.max_epoch(Learner)
 @click.option("--debug", is_flag=True, help="Print debug information")
