@@ -22,7 +22,7 @@ nltk
 # interfacing
 git+https://github.com/TREMA-UNH/trec-car-tools.git#subdirectory=python3&egg=trec_car_tools
 sqlitedict
-git+https://github.com/cvangysel/pytrec_eval.git&egg=pytrec_eval
+git+https://github.com/cvangysel/pytrec_eval.git#egg=pytrec_eval
 gensim
 Cython
 pyjnius
