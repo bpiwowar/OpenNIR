@@ -41,8 +41,8 @@ class WordvecVocab(vocab.Vocab):
     """
     A word vector vocabulary that supports standard pre-trained word vectors
     """
-    def __initialize__(self):
-        super().__initialize__()
+    def __init__(self):
+        super().__init__()
         self._terms, self._weights = self.load()
         self._term2idx = {t: i for i, t in enumerate(self._terms)}
 
@@ -83,8 +83,8 @@ class WordvecUnkVocab(WordvecVocab):
     """
     A vocabulary in which all unknown terns are given the same token (UNK; 0), with random weights
     """
-    def __initialize__(self):
-        super().__initialize__()
+    def __init__(self):
+        super().__init__()
         self._terms = [None] + self._terms
         for term in self._term2idx:
             self._term2idx[term] += 1
@@ -117,8 +117,8 @@ class WordvecHashVocab(WordvecVocab):
         })
         return result
 
-    def __initialize__(self, config, logger, random):
-        super().__initialize__(config, logger, random)
+    def __init__(self, config, logger, random):
+        super().__init__(config, logger, random)
         self._hashspace = config['hashspace']
         hash_weights = random.normal(scale=config['init_stddev'],
                                      size=(self._hashspace, self._weights.shape[1]))

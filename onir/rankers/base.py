@@ -1,15 +1,18 @@
 from experimaestro import config, param
+from onir import log, vocab
 import torch
 from torch import nn
 
 @param("qlen", default=20)
 @param("dlen", default=2000)
 @param("add_runscore", default=False)
+@param("vocab", type=vocab.Vocab)
 @config()
 class Ranker(nn.Module):
     def initialize(self, random):
         nn.Module.__init__(self)
         self.random = random
+        self.logger = log.easy()
         seed = self.random.randint((2**32)-1)
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
@@ -17,6 +20,7 @@ class Ranker(nn.Module):
         torch.backends.cudnn.benchmark = False
         if self.add_runscore:
             self.runscore_alpha = torch.nn.Parameter(torch.full((1, ), -1.))
+        self.vocab.initialize()
 
     def input_spec(self):
         # qlen_mode and dlen_mode possible values:

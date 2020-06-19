@@ -1,18 +1,27 @@
 import json
-from experimaestro import task, param, progress, pathargument
+from experimaestro import task, param, progress, pathoption
 from onir.datasets import Dataset
 from onir import log, predictors
 import numpy as np
+from typing import List
 from .learner import Learner
 
 @param("dataset", type=Dataset)
 @param("model", type=Learner)
 @param("predictor", type=predictors.BasePredictor)
-@param('metrics', default='map,p@20,ndcg')
-@pathargument("detailed", "detailed.txt")
-@pathargument("measures", "measures.txt")
+@param('metrics', type=List[str], default=['map','p@20','ndcg'])
+@pathoption("detailed", "detailed.txt")
+@pathoption("measures", "measures.txt")
 @task()
 class Evaluate:
+    # TODO: evaluate should return a "TREC result" object
+    # def config(self):
+    #     return TrecResults(
+    #         results=self.measures,
+    #         detailed=self.detailed,
+    #         metrics=self.metrics
+    #     )
+
     def execute(self):
         # Load top train context
         with open(self.model.valtest_path, "r") as fp:

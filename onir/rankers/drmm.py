@@ -2,7 +2,7 @@
 from experimaestro import param, config, Choices
 import torch
 from torch import nn
-from onir import rankers, modules, vocab
+from onir import rankers, modules, vocab, log
 
 @param("nbins", default=29, help="number of bins in matching histogram")
 @param(
@@ -13,7 +13,6 @@ from onir import rankers, modules, vocab
     checker=Choices(['count', 'norm', 'logcount'])
 )
 @param("combine", default="idf", checker=Choices(["idf", "sum"]), help="term gate type")
-@param("vocab", type=vocab.Vocab)
 @config()
 class Drmm(rankers.Ranker):
     """

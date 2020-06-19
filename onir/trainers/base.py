@@ -1,6 +1,6 @@
 from tqdm import tqdm
 import torch
-from experimaestro import param, option, config, pathargument
+from experimaestro import param, option, config, pathoption
 from onir import util, trainers
 from onir.interfaces import apex
 from onir.rankers import Ranker
@@ -17,7 +17,7 @@ from onir.log import Logger
 @param('encoder_lr', default=0.)
 
 @option("device", type=util.Device, default=util.DEFAULT_DEVICE)
-@pathargument("modelpath", "model")
+@pathoption("modelpath", "model")
 @config()
 class Trainer:
     name = None

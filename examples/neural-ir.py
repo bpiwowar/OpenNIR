@@ -5,10 +5,10 @@ from pathlib import Path
 from datamaestro import prepare_dataset
 from experimaestro.click import click, forwardoption
 from experimaestro import experiment
+from onir import rankers
 from onir.datasets.robust import RobustDataset
 from onir.predictors.reranker import Reranker
 from onir.random import Random
-from onir.rankers.drmm import Drmm
 from onir.tasks.learner import Learner
 from onir.tasks.evaluate import Evaluate
 from onir.trainers.pointwise import PointwiseTrainer
@@ -30,16 +30,17 @@ def cli(port, workdir, debug, max_epoch):
 
     # Sets the working directory and the name of the xp
     with experiment(workdir, "drmm", port=port) as xp:
+        # Prepare the collection
         random = Random()
+        robust = RobustDataset.prepare().submit()
         xp.setenv("JAVA_HOME", os.environ["JAVA_HOME"])
         
-        # Prepare the collection
+        # Prepare the embeddings
         wordembs = prepare_dataset("edu.stanford.glove.6b.50")        
         vocab = WordvecUnkVocab(data=wordembs, random=random)
-        robust = RobustDataset.prepare().submit()
 
         # Train with OpenNIR DRMM model
-        ranker = Drmm(vocab=vocab).tag("ranker", "drmm")
+        ranker = rankers.Drmm(vocab=vocab).tag("ranker", "drmm")
         predictor = Reranker()
         trainer = PointwiseTrainer()
         learner = Learner(trainer=trainer, random=random, ranker=ranker, valid_pred=predictor, 

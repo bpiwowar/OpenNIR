@@ -3,7 +3,7 @@ from onir import util, vocab, log
 
 @config()
 class Dataset:
-    def __initialize__(self):
+    def __init__(self):
         self.logger = log.Logger(self.__class__.__name__)
 
     def initialize(self, vocab):

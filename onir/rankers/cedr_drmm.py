@@ -1,11 +1,12 @@
 import torch
 from torch import nn
-from onir import rankers
+from onir.rankers.drmm import Drmm
+from experimaestro import param, config, Choices
 
 
 # TODO: adapt
-@rankers.register('cedr_drmm')
-class CedrDrmm(rankers.drmm.Drmm):
+@config()
+class CedrDrmm(Drmm):
     """
     Implementation of CEDR for the DRMM model described in:
       > Sean MacAvaney, Andrew Yates, Arman Cohan, and Nazli Goharian. 2019. CEDR: Contextualized
@@ -13,8 +14,8 @@ class CedrDrmm(rankers.drmm.Drmm):
     Should be used with a model first trained using Vanilla BERT.
     """
 
-    def __init__(self, vocab, config, logger, random):
-        super().__init__(vocab, config, logger, random)
+    def initialize(self, random):
+        super().initialize(random)
         enc = self.encoder
         assert 'cls' in enc.enc_spec()['joint_fields'], \
                "CedrDrmm requires a vocabulary that supports CLS encoding, e.g., BertVocab"

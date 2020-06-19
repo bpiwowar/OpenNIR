@@ -1,8 +1,8 @@
 import os
 from pytools import memoize_method
-from experimaestro import task, param, pathargument, progress
+from experimaestro import task, param, pathoption, progress, configmethod
 from experimaestro_ir.anserini import Index as AnseriniIndex
-from datamaestro_text.data.trec import TrecAdhocAssessments, TrecAdhocTopics
+from datamaestro_text.data.ir.trec import TrecAdhocAssessments, TrecAdhocTopics
 from onir import datasets, util, indices, vocab
 from .index_backed import IndexBackedDataset
 from onir.interfaces import trec, plaintext
@@ -28,21 +28,22 @@ FOLDS['all'] = _ALL
 @param('queries', type=TrecAdhocTopics)
 @param('assessments', type=TrecAdhocAssessments)
 
-@pathargument("path_anserini", "anserini")
-@pathargument("path_anserini_porter", "anserini.porter")
-@pathargument("path_docs", "docs.sqlite")
-@pathargument("path_folds", "folds")
-@pathargument("path_topics", "topics")
+@pathoption("path_anserini", "anserini")
+@pathoption("path_anserini_porter", "anserini.porter")
+@pathoption("path_docs", "docs.sqlite")
+@pathoption("path_folds", "folds")
+@pathoption("path_topics", "topics")
 @task()
 class RobustDataset(IndexBackedDataset):
     """Prepares the Robust dataset from a pre-computed index"""
 
-    def __initialize__(self):
-        IndexBackedDataset.__initialize__(self)
+    def __init__(self):
+        IndexBackedDataset.__init__(self)
         self.index = indices.AnseriniIndex(self.path_anserini, stemmer='none')
         self.index_stem = indices.AnseriniIndex(self.path_anserini_porter, stemmer='porter')
         self.doc_store = indices.SqliteDocstore(self.path_docs)
 
+    @configmethod
     @staticmethod
     def prepare(**kwargs):
         from datamaestro import prepare_dataset

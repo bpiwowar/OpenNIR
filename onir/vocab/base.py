@@ -1,5 +1,6 @@
 import re
 from torch import nn
+from onir import log
 from experimaestro import config, param
 
 class VocabEncoder(nn.Module):
@@ -73,9 +74,12 @@ class Vocab:
     Represents a vocabulary and corresponding neural encoding technique (e.g., embedding)
     """
     name = None
-    def __initialize__(self):
-        pass
+    def __init__(self):
+        self.logger = log.easy()
 
+    def initialize(self):
+        pass
+    
     def tokenize(self, text):
         """
         Meant to be overwritten in to provide vocab-specific tokenization when necessary

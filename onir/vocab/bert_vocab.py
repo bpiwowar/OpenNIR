@@ -6,26 +6,24 @@ from onir.interfaces import bert_models
 from onir import vocab, util, config
 from onir.modules import CustomBertModelWrapper
 import tokenizers as tk
+from experimaestro import param, config, Choices
 
 
-# TODO: adapt ('bert')
+ # TODO: merge bert_base and bert_weights somehow, better integrate fine-tuning BERT into pipeline
+
+@param('bert_base', default='bert-base-uncased')
+@param('bert_weights', default='')
+@param('layer', default=-1, help="Layer to use, or -1 for all")
+@param('last_layer', default=False)
+@param('train', default=False)
+@param('encoding', default='joint', checker=Choices(['joint', 'sep']))
+@config()
 class BertVocab(vocab.Vocab):
-    @staticmethod
-    def default_config():
-        return {
-            'bert_base': 'bert-base-uncased',
-            'bert_weights': '',     # TODO: merge bert_base and bert_weights somehow, better integrate fine-tuning BERT into pipeline
-            'layer': -1, # all layers
-            'last_layer': False,
-            'train': False,
-            'encoding': config.Choices(['joint', 'sep']),
-        }
-
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        bert_model = bert_models.get_model(config['bert_base'], self.logger)
+    def initialize(self):
+        super().initialize()
+        bert_model = bert_models.get_model(self.bert_base, self.logger)
         self.tokenizer = BertTokenizer.from_pretrained(bert_model)
-        # HACK! Until the transformers library adopts tokenizers, save and re-load vocab
+        # TODO: HACK! Until the transformers library adopts tokenizers, save and re-load vocab
         with tempfile.TemporaryDirectory() as d:
             self.tokenizer.save_vocabulary(d)
             # this tokenizer is ~4x faster as the BertTokenizer, per my measurements
@@ -53,26 +51,6 @@ class BertVocab(vocab.Vocab):
             'sep': SepBertEncoder,
         }[self.encoding](self)
 
-    def path_segment(self):
-        result = '{name}_{bert_base}'.format(name=self.name, **self.config)
-        if self.bert_weights:
-            result += '_{}'.format(self.bert_weights)
-        if self.last_layer:
-            if self.layer != -1:
-                result += '_{}last'.format(self.layer)
-            else:
-                result += '_last'
-        elif self.layer != -1:
-            result += '_{}only'.format(self.layer)
-        if self.train:
-            result += '_tr'
-        if self.encoding != 'joint':
-            result += '_{encoding}'.format(**self.config)
-        return result
-
-    def lexicon_path_segment(self):
-        return 'bert_{bert_base}'.format(**self.config)
-
     def lexicon_size(self) -> int:
         return len(self.tokenizer.vocab)
 
@@ -81,24 +59,24 @@ class BaseBertEncoder(vocab.VocabEncoder):
 
     def __init__(self, vocabulary):
         super().__init__(vocabulary)
-        layer = vocabulary.config['layer']
+        layer = vocabulary.layer
         if layer == -1:
             layer = None
-        bert_model = bert_models.get_model(vocabulary.config['bert_base'], vocabulary.logger)
+        bert_model = bert_models.get_model(vocabulary.bert_base, vocabulary.logger)
         self.bert = CustomBertModelWrapper.from_pretrained(bert_model, depth=layer)
-        if vocabulary.config['bert_weights']:
-            weight_path = os.path.join(util.path_vocab(vocabulary), vocabulary.config['bert_weights'])
+        if vocabulary.bert_weights:
+            weight_path = os.path.join(util.path_vocab(vocabulary), vocabulary.bert_weights)
             with vocabulary.logger.duration('loading BERT weights from {}'.format(weight_path)):
                 self.bert.load_state_dict(torch.load(weight_path), strict=False)
         self.CLS = vocabulary.tok2id('[CLS]')
         self.SEP = vocabulary.tok2id('[SEP]')
-        self.bert.set_trainable(vocabulary.config['train'])
+        self.bert.set_trainable(vocabulary.train)
 
     def _enc_spec(self) -> dict:
         return {
             'dim': self.bert.config.hidden_size,
-            'views': 1 if self.vocab.config['last_layer'] else self.bert.depth + 1,
-            'static': not self.vocab.config['train']
+            'views': 1 if self.vocab.last_layer else self.bert.depth + 1,
+            'static': not self.vocab.train
         }
 
 
@@ -125,7 +103,7 @@ class SepBertEncoder(BaseBertEncoder):
         # Change -1 padding to 0-padding (will be masked)
         toks = torch.where(toks == -1, torch.zeros_like(toks), toks)
         result = self.bert(toks, segment_ids, mask)
-        if not self.vocab.config['last_layer']:
+        if not self.vocab.last_layer:
             cls_result = [r[:, 0] for r in result]
             result = [r[:, 1:-1, :] for r in result]
             result = [util.un_subbatch(r, in_toks, MAX_TOK_LEN) for r in result]
@@ -209,7 +187,7 @@ class JointBertEncoder(BaseBertEncoder):
             cls_result = torch.stack(cls_result, dim=2).mean(dim=2)
             cls_results.append(cls_result)
 
-        if self.vocab.config['last_layer']:
+        if self.vocab.last_layer:
             query_results = query_results[-1]
             doc_results = doc_results[-1]
             cls_results = cls_results[-1]

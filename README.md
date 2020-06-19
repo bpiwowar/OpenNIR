@@ -74,14 +74,14 @@ The features below are from [OpenNIR](http://github.com/)
 
 Available in the `onir.rankers` module
 
- - DRMM `onir.ranker.drmm.Drmm` [paper](https://arxiv.org/abs/1711.08611)
+ - DRMM `onir.rankers.drmm.Drmm` [paper](https://arxiv.org/abs/1711.08611)
  - (*planned*) Duet (local model) [paper](https://arxiv.org/abs/1610.08136)
  - (*planned*) MatchPyramid  [paper](https://arxiv.org/abs/1606.04648)
  - (*planned*) KNRM [paper](https://arxiv.org/abs/1706.06613)
  - (*planned*) PACRR  [paper](https://arxiv.org/abs/1704.03940)
  - (*planned*) ConvKNRM  [paper](https://www.semanticscholar.org/paper/432b36c1bec275c2778c66f9897f9e02f7d8b579)
  - (*planned*) Vanilla BERT `config/vanilla_bert` [paper](https://arxiv.org/abs/1810.04805)
- - (*planned*) CEDR models `config/cedr/[model]` [paper](https://arxiv.org/abs/1810.04805)
+ - CEDR models `onir.rankers.cedr_drmm.CedrDrmm` [paper](https://arxiv.org/abs/1810.04805)
  - (*planned*) MatchZoo models [source](https://github.com/NTMC-Community/MatchZoo)
    - (*planned*) MatchZoo's KNRM 
    - (*planned*) MatchZoo's ConvKNRM 

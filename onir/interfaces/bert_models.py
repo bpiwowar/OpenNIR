@@ -7,7 +7,7 @@ from pytorch_pretrained_bert import BertForPreTraining, BertConfig
 from onir import util
 
 
-def _hugging_handler(name, base_path, logger):
+def _hugging_handler(name):
     # Just use the default huggingface handler for model
     return name
 
@@ -71,9 +71,7 @@ def get_model(name, logger):
     name = MODEL_ALIAS.get(name, name) # replace with alias
     if name not in MODEL_MAP:
         raise ValueError(f'Unknown bert model {name}')
-    base_path = os.path.join(util.get_working(), 'bert_models')
-    os.makedirs(base_path, exist_ok=True)
-    return MODEL_MAP[name](name, base_path, logger)
+    return MODEL_MAP[name](name)
 
 
 def _download_tarball(url, path, logger, expected_md5=None):

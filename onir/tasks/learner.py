@@ -1,6 +1,6 @@
 import json
 import os
-from experimaestro import task, param, progress, pathargument
+from experimaestro import task, param, progress, pathoption
 from onir import predictors, log
 from onir.trainers import Trainer
 from onir.datasets import Dataset
@@ -24,7 +24,7 @@ import onir.trainers.base
 @param("trainer", type=Trainer)
 @param("random", type=Random)
 
-@pathargument("valtest_path", "val_test.jsonl")
+@pathoption("valtest_path", "val_test.jsonl")
 @task()
 class Learner:
     """A learner pipeline 

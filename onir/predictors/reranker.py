@@ -1,7 +1,7 @@
 import os
 import json
 import torch
-from experimaestro import config, param, pathargument
+from experimaestro import config, param, pathoption
 import onir
 from onir import util, spec, predictors, datasets
 from onir.interfaces import trec, plaintext
@@ -15,7 +15,7 @@ from onir.util import Device, DEFAULT_DEVICE
 @param('run_threshold', default=0)
 @param('measures', default='map,ndcg,p@20,ndcg@20,mrr')
 @param('source', default='run')
-@pathargument("basepath", "reranker")
+@pathoption("basepath", "reranker")
 @config()
 class Reranker(predictors.BasePredictor):
     name = None

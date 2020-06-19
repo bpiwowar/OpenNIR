@@ -3,16 +3,17 @@ import functools
 import contextlib
 from glob import glob
 import pickle
-from experimaestro import param, config
+from experimaestro import param, config, configmethod
 from experimaestro_ir.anserini import IndexCollection
 from onir import datasets, util, log
 from onir.interfaces import trec
 
 @config()
 class IndexBackedDataset():
-    def __initialize__(self):
+    def __init__(self):
         self.logger = log.easy()
 
+    @configmethod
     def subset(self, subset: str, **kwargs):
         return Dataset(index=self, subset=subset, **kwargs)
 
@@ -51,8 +52,8 @@ class Dataset(datasets.Dataset):
     Dataset base class for using an index as the source of the data.
     """
 
-    def __initialize__(self):
-        super().__initialize__()
+    def __init__(self):
+        super().__init__()
         self.run_cache = {}
         self.logger = log.easy()
 

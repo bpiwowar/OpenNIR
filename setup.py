@@ -35,5 +35,5 @@ setup(
             "onir_eval=onir.bin.eval:main",
         ],
     },
-    python_requires='>=3.6',
+    python_requires='>=3.7',
 )
