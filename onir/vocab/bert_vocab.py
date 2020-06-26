@@ -52,7 +52,7 @@ class BertVocab(vocab.Vocab):
         }[self.encoding](self)
 
     def lexicon_size(self) -> int:
-        return len(self.tokenizer.vocab)
+        return self.tokenizer._tokenizer.get_vocab_size()
 
 
 class BaseBertEncoder(vocab.VocabEncoder):
