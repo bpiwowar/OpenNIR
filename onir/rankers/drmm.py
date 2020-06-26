@@ -24,7 +24,7 @@ class Drmm(rankers.Ranker):
         super().initialize(random)
         self.encoder = self.vocab.encoder()
         if not self.encoder.static():
-            logger.warn('In most cases, using vocab.train=True will not have an effect on DRMM '
+            self.logger.warn('In most cases, using vocab.train=True will not have an effect on DRMM '
                         'because the histogram is not differentiable. An exception might be if '
                         'the gradient is proped back by another means, e.g. BERT [CLS] token.')
         self.simmat = modules.InteractionMatrix()
