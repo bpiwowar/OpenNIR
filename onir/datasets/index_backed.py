@@ -8,6 +8,7 @@ from experimaestro_ir.anserini import IndexCollection
 from onir import datasets, util, log
 from onir.interfaces import trec
 
+# FIXME: decouple the index from the queries/assessments
 @config()
 class IndexBackedDataset():
     def __init__(self):
@@ -15,9 +16,17 @@ class IndexBackedDataset():
 
     @configmethod
     def subset(self, subset: str, **kwargs):
+        """Returns a subset of this dataset"""
         return Dataset(index=self, subset=subset, **kwargs)
 
     def _init_indices_parallel(self, indices, doc_iter, force):
+        """Builds the indices
+
+        Args:
+            indices (List[onir.indices.BaseIndex]): The indices to build
+            doc_iter (Iterator[onir.indices.misc.RawDoc]): [description]
+            force (bool): Whether indices should be rebuilt
+        """
         needs_docs = []
         for index in indices:
             if force or not index.built():

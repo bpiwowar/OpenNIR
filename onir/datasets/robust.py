@@ -38,7 +38,7 @@ class RobustDataset(IndexBackedDataset):
     """Prepares the Robust dataset from a pre-computed index"""
 
     def __init__(self):
-        IndexBackedDataset.__init__(self)
+        super().__init__(self)
         self.index = indices.AnseriniIndex(self.path_anserini, stemmer='none')
         self.index_stem = indices.AnseriniIndex(self.path_anserini_porter, stemmer='porter')
         self.doc_store = indices.SqliteDocstore(self.path_docs)
@@ -90,6 +90,7 @@ class RobustDataset(IndexBackedDataset):
         idxs = [self.index, self.index_stem, self.doc_store]
         self._init_indices_parallel(idxs, self._init_iter_collection(), True)
 
+        # Save the assessments
         for fold in FOLDS:
             fold_qrels_file = self.path_folds.with_suffix(f".{fold}.qrels")
             with self.assessments.path.open("r") as fp:
@@ -97,6 +98,7 @@ class RobustDataset(IndexBackedDataset):
             fold_qrels = {qid: dids for qid, dids in all_qrels.items() if qid in FOLDS[fold]}
             trec.write_qrels_dict(fold_qrels_file, fold_qrels)
 
+        # Save the qrels
         with util.finialized_file(self.path_topics, 'wt') as f, self.queries.path.open("rt") as query_file_stream:
             plaintext.write_tsv(f, trec.parse_query_format(query_file_stream))
 
