@@ -2,6 +2,7 @@ import os
 import onir
 from onir.interfaces.sqlite import Sqlite2KeyDict
 from onir import indices
+from experimaestro import param, pathoption, config
 
 
 FIELD_RAW = '__raw__'
@@ -70,3 +71,10 @@ class SqliteDocstore(indices.BaseIndex):
     def num_docs(self):
         if self.built():
             return self.sql().countkey2s()
+
+@pathoption('path', 'store')
+@param('field', default='text')
+@config()
+class DocStore(SqliteDocstore): 
+    def __init__(self):
+        super.__init__(self.path, self.field)

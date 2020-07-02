@@ -101,27 +101,17 @@ class WordvecUnkVocab(WordvecVocab):
         return len(self._terms) + 1
 
 
-# TODO: adapt ('wordvec_hash')
+@param('hashspace', default=1000)
+@param('init_stddev', default=0.5)
+@param('log_miss', default=False)
 class WordvecHashVocab(WordvecVocab):
     """
     A vocabulary in which all unknown terms are assigned a position in a flexible cache based on
     their hash value. Each position is assigned its own random weight.
     """
-    @staticmethod
-    def default_config():
-        result = WordvecVocab.default_config().copy()
-        result.update({
-            'hashspace': 1000,
-            'init_stddev': 0.5,
-            'log_miss': False
-        })
-        return result
-
-    def __init__(self, config, logger, random):
-        super().__init__(config, logger, random)
-        self._hashspace = config['hashspace']
+    def initialize(self, random):
         hash_weights = random.normal(scale=config['init_stddev'],
-                                     size=(self._hashspace, self._weights.shape[1]))
+                                     size=(self.hashspace, self._weights.shape[1]))
         self._weights = np.concatenate([self._weights, hash_weights])
 
     def tok2id(self, tok):
@@ -133,7 +123,7 @@ class WordvecHashVocab(WordvecVocab):
             # NOTE: use md5 hash (or similar) here because hash() is not consistent across runs
             item = tok.encode()
             item_hash = int(hashlib.md5(item).hexdigest(), 16)
-            item_hash_pos = item_hash % self._hashspace
+            item_hash_pos = item_hash % self.hashspace
             return len(self._terms) + item_hash_pos
 
     def lexicon_size(self) -> int:

@@ -32,11 +32,12 @@ def cli(port, gpu, workdir, debug, max_epoch):
     
     # Sets the working directory and the name of the xp
     with experiment(workdir, "drmm", port=port) as xp:
-        # Prepare the collection
         random = Random()
-        robust = RobustDataset.prepare().submit()
         xp.setenv("JAVA_HOME", os.environ["JAVA_HOME"])
-        
+
+        # Prepare the collection
+        robust = RobustDataset.prepare()
+               
         # Prepare the embeddings
         wordembs = prepare_dataset("edu.stanford.glove.6b.50")        
         vocab = WordvecUnkVocab(data=wordembs, random=random)

@@ -8,16 +8,16 @@ from experimaestro_ir.anserini import IndexCollection
 from onir import datasets, util, log
 from onir.interfaces import trec
 
-# FIXME: decouple the index from the queries/assessments
+
+@config()
+class AssessedTopics():
+    """Abstract class encapsulating topics with their associated relevance assessments"""
+    pass
+
 @config()
 class IndexBackedDataset():
     def __init__(self):
         self.logger = log.easy()
-
-    @configmethod
-    def subset(self, subset: str, **kwargs):
-        """Returns a subset of this dataset"""
-        return Dataset(index=self, subset=subset, **kwargs)
 
     def _init_indices_parallel(self, indices, doc_iter, force):
         """Builds the indices
@@ -54,7 +54,7 @@ class IndexBackedDataset():
 @param('rankfn', default='bm25')
 @param('subset', default='all')
 @param('ranktopk', default=1000)
-@param('index', type=IndexBackedDataset)
+@param('assessed_topics', type=AssessedTopics)
 @config()
 class Dataset(datasets.Dataset):
     """
@@ -73,14 +73,12 @@ class Dataset(datasets.Dataset):
 
     def run(self, fmt='dict'):
         return self._load_run_base(self.index._get_index_for_batchsearch(),
-                                   self.subset,
                                    self.rankfn,
                                    self.ranktopk,
                                    fmt=fmt)
 
     def run_dict(self):
         return self._load_run_base(self.index._get_index_for_batchsearch(),
-                                   self.subset,
                                    self.rankfn,
                                    self.ranktopk,
                                    fmt='dict')
@@ -100,8 +98,8 @@ class Dataset(datasets.Dataset):
     def num_queries(self):
         return sum(1 for _ in self.all_query_ids())
 
-    def _load_run_base(self, index, subset, rankfn, ranktopk, fmt='dict', fscache=False, memcache=True):
-        key = (index.path(), subset, rankfn, ranktopk, fmt)
+    def _load_run_base(self, index, rankfn, ranktopk, fmt='dict', fscache=False, memcache=True):
+        key = (index.path(), rankfn, ranktopk, fmt)
         if memcache and key in self.run_cache:
             return self.run_cache[key]
         index_path = index.path().rstrip('/')
@@ -116,7 +114,7 @@ class Dataset(datasets.Dataset):
         if result is None:
             result = self._load_run_base_infer(run_dir, rankfn, ranktopk, fmt)
         if result is None:
-            result = self._load_run_base_query(index, subset, rankfn, ranktopk, run_path, fmt)
+            result = self._load_run_base_query(index, rankfn, ranktopk, run_path, fmt)
 
         if fscache and not os.path.exists(run_path_cache):
             with open(run_path_cache, 'wb') as f:
