@@ -75,9 +75,21 @@ class AnseriniIndex(indices.BaseIndex):
     """
     Interface to an Anserini index.
     """
-    def __init__(self, path, keep_stops=False, stemmer='porter', field='text', store_raw_docs=False, lang='en'):
+    def __init__(self, path, keep_stops=False, stemmer='porter', field='text', store_raw_docs=False, lang='en', name=None):
+        """
+
+        Args:
+            path (str): The path to the index
+            keep_stops (bool, optional): Keeps stop words. Defaults to False.
+            stemmer (str, optional): Stemmer. Defaults to 'porter'.
+            field (str, optional): The indexed field. Defaults to 'text'.
+            store_raw_docs (bool, optional): Whether raw docs should be stored. Defaults to False.
+            lang (str, optional): The language (for stemming). Defaults to 'en'.
+            name (str, optional): A relatively unique name for caching query results. Defaults to None.
+        """
         path = str(path)
         self._path = path
+        self._name = name
         os.makedirs(path, exist_ok=True)
         self._settings_path = os.path.join(path, 'settings.json')
         if os.path.exists(self._settings_path):

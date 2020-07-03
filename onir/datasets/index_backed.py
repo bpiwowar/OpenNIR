@@ -3,16 +3,12 @@ import functools
 import contextlib
 from glob import glob
 import pickle
-from experimaestro import param, config, configmethod
+from experimaestro import param, config, cache, configmethod, pathoption
 from experimaestro_ir.anserini import IndexCollection
 from onir import datasets, util, log
 from onir.interfaces import trec
+from onir.datasets import AssessedTopics
 
-
-@config()
-class AssessedTopics():
-    """Abstract class encapsulating topics with their associated relevance assessments"""
-    pass
 
 @config()
 class IndexBackedDataset():
@@ -72,13 +68,13 @@ class Dataset(datasets.Dataset):
         return record
 
     def run(self, fmt='dict'):
-        return self._load_run_base(self.index._get_index_for_batchsearch(),
+        return self._load_run_base(self._get_index_for_batchsearch(),
                                    self.rankfn,
                                    self.ranktopk,
                                    fmt=fmt)
 
     def run_dict(self):
-        return self._load_run_base(self.index._get_index_for_batchsearch(),
+        return self._load_run_base(self._get_index_for_batchsearch(),
                                    self.rankfn,
                                    self.ranktopk,
                                    fmt='dict')
@@ -90,7 +86,7 @@ class Dataset(datasets.Dataset):
         return self._get_docstore().num_docs()
 
     def all_query_ids(self):
-        yield from self.index._load_queries_base(self.subset).keys()
+        yield from self._load_queries_base(self.subset).keys()
 
     def all_queries_raw(self):
         return self._load_queries_base(self.config['subset']).items()
@@ -98,23 +94,23 @@ class Dataset(datasets.Dataset):
     def num_queries(self):
         return sum(1 for _ in self.all_query_ids())
 
-    def _load_run_base(self, index, rankfn, ranktopk, fmt='dict', fscache=False, memcache=True):
+    @cache("runs")
+    def _load_run_base(self, run_path, index, rankfn, ranktopk, fmt='dict', fscache=False, memcache=True):
         key = (index.path(), rankfn, ranktopk, fmt)
         if memcache and key in self.run_cache:
             return self.run_cache[key]
-        index_path = index.path().rstrip('/')
-        run_dir = f'{index_path}.{subset}.runs'
-        os.makedirs(run_dir, exist_ok=True)
-        run_path = os.path.join(run_dir, f'{rankfn}.{ranktopk}.run')
+
+        run_path.mkdir(parents=True, exist_ok=True)
+        run_path = str(run_path / f"{rankfn}.{ranktopk}.run")
         run_path_cache = f'{run_path}.{fmt}.cache'
 
         result = self._load_run_base_fscached(run_path_cache, rankfn, ranktopk, fscache)
         if result is None:
-            result = self._load_run_base_direct(run_path, rankfn, ranktopk, fmt)
+            result = self._load_run_base_direct(str(run_path), rankfn, ranktopk, fmt)
         if result is None:
-            result = self._load_run_base_infer(run_dir, rankfn, ranktopk, fmt)
+            result = self._load_run_base_infer(str(self.run_path.parent), rankfn, ranktopk, fmt)
         if result is None:
-            result = self._load_run_base_query(index, rankfn, ranktopk, run_path, fmt)
+            result = self._load_run_base_query(index, rankfn, ranktopk, str(run_path), fmt)
 
         if fscache and not os.path.exists(run_path_cache):
             with open(run_path_cache, 'wb') as f:
@@ -151,8 +147,8 @@ class Dataset(datasets.Dataset):
                 return trec.read_run_fmt(best_candidate_run, fmt, top=ranktopk)
         return None
 
-    def _load_run_base_query(self, index, subset, rankfn, ranktopk, run_path, fmt):
-        queries = self.index._load_queries_base(subset).items()
+    def _load_run_base_query(self, index, rankfn, ranktopk, run_path, fmt):
+        queries = self._load_queries_base().items()
         index.batch_query(queries, rankfn, ranktopk, destf=run_path)
         return trec.read_run_fmt(run_path, fmt)
 
@@ -160,7 +156,7 @@ class Dataset(datasets.Dataset):
         return "en"
 
     def _query_rawtext(self, record):
-        return self.index._load_queries_base(self.subset)[record['query_id']]
+        return self._load_queries_base()[record['query_id']]
 
     def _query_text(self, record):
         return tuple(self.vocab.tokenize(record['query_rawtext']))
@@ -169,7 +165,7 @@ class Dataset(datasets.Dataset):
         return [self.vocab.tok2id(t) for t in record['query_text']]
 
     def _query_idf(self, record):
-        index = self.index._get_index(record)
+        index = self._get_index(record)
         return [index.term2idf(t) for t in record['query_text']]
 
     def _query_len(self, record):
@@ -179,11 +175,11 @@ class Dataset(datasets.Dataset):
         return self._lang()
 
     def _query_score(self, record):
-        index = self.index._get_index(record)
+        index = self._get_index(record)
         return index.get_query_doc_scores(record['query_text'], record['doc_id'], self.rankfn)[1]
 
     def _doc_rawtext(self, record):
-        docstore = self.index._get_docstore()
+        docstore = self._get_docstore()
         return docstore.get_raw(record['doc_id'])
 
     def _doc_text(self, record):
@@ -193,7 +189,7 @@ class Dataset(datasets.Dataset):
         return [self.vocab.tok2id(t) for t in record['doc_text']]
 
     def _doc_idf(self, record):
-        index = self.index._get_index(record)
+        index = self._get_index(record)
         return [index.term2idf(t) for t in record['doc_rawtext']]
 
     def _doc_len(self, record):
@@ -203,14 +199,14 @@ class Dataset(datasets.Dataset):
         return self._lang()
 
     def _runscore(self, record):
-        index = self.index._get_index(record)
+        index = self._get_index(record)
         return index.get_query_doc_scores(record['query_text'], record['doc_id'], self.rankfn)[0]
 
     def _relscore(self, record):
         return float(self.qrels('dict').get(record['query_id'], {}).get(record['doc_id'], -999))
 
     def qrels(self, fmt='dict'):
-        return self.index.qrels(fmt=fmt)
+        return self.qrels(fmt=fmt)
 
 
 class LazyDataRecord:

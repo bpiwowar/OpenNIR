@@ -4,8 +4,8 @@ from functools import lru_cache
 from experimaestro import task, config, param, pathoption, progress, configmethod, Choices, cache
 from experimaestro_ir.anserini import Index as AnseriniIndex
 from datamaestro_text.data.ir.trec import TrecAdhocAssessments, TrecAdhocTopics
-from onir import datasets, util, indices, vocab
-from .index_backed import IndexBackedDataset, Dataset, AssessedTopics
+from onir import datasets, util, indices, vocab, log
+from .index_backed import IndexBackedDataset, Dataset
 from onir.indices.sqlite import DocStore
 from onir.interfaces import trec, plaintext
 from datamaestro import prepare_dataset
@@ -26,59 +26,41 @@ for i in range(len(FOLDS)):
     FOLDS['va' + _FOLD_IDS[i]] = FOLDS[_FOLD_IDS[i-1]]
 FOLDS['all'] = _ALL
 
-
-@param("topics")
-@param("assessments")
-@config()
-class TrecAssessedTopics(AssessedTopics):
-    @cache("qrels.tsv")
-    def qrels(self, fold_qrels_file):
-        # Save the assessments
-        with self.assessments.path.open("r") as fp:
-            all_qrels = trec.read_qrels_dict(fp)
-        fold_qrels = {qid: dids for qid, dids in all_qrels.items() if qid in self.qids}
-        trec.write_qrels_dict(fold_qrels_file, fold_qrels)
-
-    @cache("topics.tsv")
-    def topics(self, path_topics):
-        # Save the qrels; TODO: filter topics
-        with util.finialized_file(path_topics, 'wt') as f, self.topics.path.open("rt") as query_file_stream:
-            plaintext.write_tsv(f, trec.parse_query_format(query_file_stream))
-
 @param("fold", default=None, checker=Choices(list(FOLDS.keys())))
 @config()
-class RobustAssessedTopics(TrecAssessedTopics):
+class RobustAssessedTopics(datasets.TrecAssessedTopics):
     def __init__(self):
         self.qids = FOLDS[self.fold]
 
-class IndexReader():
+class IndexReader(IndexBackedDataset):
     def _init_iter_collection(self):
         # Using the trick here from capreolus, pulling document content out of public index:
         # <https://github.com/capreolus-ir/capreolus/blob/d6ae210b24c32ff817f615370a9af37b06d2da89/capreolus/collection/robust04.yaml#L15>
         index = indices.AnseriniIndex(self.index.path)
         total = index.num_docs()
-        for ix, did in enumerate(self.logger.pbar(index.docids(), desc='documents')):
+        logger = log.easy()
+        for ix, did in enumerate(logger.pbar(index.docids(), desc='documents')):
             progress(ix/total)
             raw_doc = index.get_raw(did)
             yield indices.RawDoc(did, raw_doc)
 
 
 @param('index', type=AnseriniIndex, help="Index containing raw documents")
-@pathoption("output_path", "docstore")
+@pathoption("path", "docstore")
 @task()
-class BuildDocStore(IndexReader):
+class BuildDocStore(DocStore, IndexReader):
     def execute(self):
-        idxs = [indices.SqliteDocstore(self.path_docs)]
+        idxs = [indices.SqliteDocstore(self.path)]
         self._init_indices_parallel(idxs, self._init_iter_collection(), True)
  
 
 @param('index', type=AnseriniIndex, help="Index containing raw documents")
-@pathoption("output_path", "index")
+@pathoption("path", "index")
 @task()
-class Reindex(IndexReader):
+class Reindex(AnseriniIndex, IndexReader):
     def execute(self):
-        idxs = [indices.AnseriniIndex(self.output_path, stemmer='none')]
-        self._init_indices_parallel(idxs, self._init_iter_collection(), True)
+        idxs = [indices.AnseriniIndex(self.path, stemmer='none')]
+        super()._init_indices_parallel(idxs, self._init_iter_collection(), True)
 
 # # TODO: Run Reindex and BuildDocStore in parallel
 # @param('index', type=AnseriniIndex, help="Index containing raw documents")
@@ -100,13 +82,13 @@ class Reindex(IndexReader):
 @param('index_stem', type=AnseriniIndex)
 @param('index', type=AnseriniIndex)
 @param('docstore', type=DocStore)
-@task()
+@config()
 class RobustDataset(Dataset):
     """Prepares the Robust dataset from a pre-computed index"""
     def __init__(self):
-        super().__init__(self)
-        self.index = indices.AnseriniIndex(self.index.path)
-        self.index_stem = indices.AnseriniIndex(self.index_stem.path)
+        super().__init__()
+        self.index = indices.AnseriniIndex(self.index.path, stemmer="none", name="fullindex")
+        self.index_stem = indices.AnseriniIndex(self.index_stem.path, name="stemindex")
         self.doc_store = indices.SqliteDocstore(self.docstore.path)
 
     @configmethod
@@ -124,24 +106,20 @@ class RobustDataset(Dataset):
         return self.index_stem
 
     @memoize_method
-    def _load_queries_base(self, subset):
-        topics = self._load_topics()
-        result = {}
-        for qid in FOLDS[subset]:
-            result[qid] = topics[qid]
-        return result
+    def _load_queries_base(self):
+        return self._load_topics()
 
     def qrels(self, fmt='dict'):
-        return self._load_qrels(self.subset, fmt)
+        return self._load_qrels(fmt)
 
     @memoize_method
-    def _load_qrels(self, subset, fmt):
-        return trec.read_qrels_fmt(str(self.assessments.path), fmt)
+    def _load_qrels(self, fmt):
+        return trec.read_qrels_fmt(str(self.assessed_topics.qrels_path()), fmt)
 
     @memoize_method
     def _load_topics(self):
         result = {}
-        for item, qid, text in plaintext.read_tsv(str(self.path_topics)):
+        for item, qid, text in plaintext.read_tsv(str(self.assessed_topics.topics_path())):
             if item == 'topic':
                 result[qid] = text
         return result
@@ -159,4 +137,4 @@ class RobustDatasetGenerator:
         """
 
         topics = RobustAssessedTopics(topics=self.topics, assessments=self.qrels, fold=fold)
-        return RobustDataset(index_stem=self.index_stem, index=self.index, assessed_topics=topics, **kwargs)
+        return RobustDataset(index_stem=self.index_stem, index=self.index, docstore=self.docstore, assessed_topics=topics, **kwargs)

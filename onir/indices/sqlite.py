@@ -77,4 +77,4 @@ class SqliteDocstore(indices.BaseIndex):
 @config()
 class DocStore(SqliteDocstore): 
     def __init__(self):
-        super.__init__(self.path, self.field)
+        super().__init__(str(self.path), self.field)
