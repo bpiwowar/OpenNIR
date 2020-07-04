@@ -13,6 +13,9 @@ from onir.tasks.learner import Learner
 from onir.tasks.evaluate import Evaluate
 from onir.trainers.pointwise import PointwiseTrainer
 from onir.vocab.wordvec_vocab import WordvecUnkVocab
+from experimaestro_ir.models import BM25
+from experimaestro_ir.anserini import SearchCollection
+from experimaestro_ir.evaluation import TrecEval
 
 logging.basicConfig(level=logging.INFO)
 
@@ -43,7 +46,7 @@ def cli(port, gpu, workdir, debug, max_epoch):
         vocab = WordvecUnkVocab(data=wordembs, random=random)
 
         # Train with OpenNIR DRMM model
-        ranker = rankers.Drmm(vocab=vocab).tag("ranker", "drmm")
+        ranker = rankers.Drmm(vocab=vocab).tag("model", "drmm")
         predictor = Reranker(device=device)
         trainer = PointwiseTrainer(device=device)
         learner = Learner(trainer=trainer, random=random, ranker=ranker, valid_pred=predictor, 
@@ -51,7 +54,21 @@ def cli(port, gpu, workdir, debug, max_epoch):
         model = learner.submit()
 
         # Evaluate
-        Evaluate(dataset=robust.subset('f1'), model=model, predictor=predictor).submit()
+        test_set = robust.subset('f1')
+        evaluate = Evaluate(dataset=test_set, model=model, predictor=predictor).submit()
+
+        # Evaluate with BM25
+        bm25_search = (
+            SearchCollection(index=robust.index, topics=test_set.assessed_topics.topics, model=BM25())
+            .tag("model", "bm25")
+            .submit()
+        )
+        bm25_eval = TrecEval(
+            assessments=test_set.assessed_topics.assessments, run=bm25_search
+        ).submit()
+    
+    print(f"Results for DRMM\n{evaluate.results.read_text()}\n")
+    print(f"Results for BM25\n{bm25_eval.results.read_text()}\n")
 
 
 if __name__ == "__main__":

@@ -5,22 +5,23 @@ from onir import log, predictors
 import numpy as np
 from typing import List
 from .learner import Learner
+from datamaestro_text.data.ir.trec import TrecAdhocResults
 
 @param("dataset", type=Dataset)
 @param("model", type=Learner)
 @param("predictor", type=predictors.BasePredictor)
-@param('metrics', type=List[str], default=['map','p@20','ndcg'])
+@param('metrics', type=List[str], default=['map','p@20','ndcg', 'ndcg@20', 'mrr'])
 @pathoption("detailed", "detailed.txt")
 @pathoption("measures", "measures.txt")
+@pathoption("predictor_path", "predictor")
 @task()
 class Evaluate:
-    # TODO: evaluate should return a "TREC result" object
-    # def config(self):
-    #     return TrecResults(
-    #         results=self.measures,
-    #         detailed=self.detailed,
-    #         metrics=self.metrics
-    #     )
+    def config(self):
+        return TrecAdhocResults(
+            results=self.measures,
+            detailed=self.detailed,
+            metrics=self.metrics
+        )
 
     def execute(self):
         # Load top train context
@@ -35,7 +36,7 @@ class Evaluate:
         ranker.initialize(random)
         ranker.load(state_path)
 
-        self.predictor.initialize(random, ranker, self.dataset)
+        self.predictor.initialize(self.predictor_path, self.metrics, random, ranker, self.dataset)
 
 
         self.dataset.initialize(ranker.vocab)

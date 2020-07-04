@@ -252,6 +252,7 @@ class Device:
                 torch.backends.cudnn.deterministic = self.gpu_determ
         return device
 
+# Default device is the CPU
 DEFAULT_DEVICE = Device()
 
 @contextmanager

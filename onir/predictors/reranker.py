@@ -1,6 +1,8 @@
 import os
 import json
 import torch
+from pathlib import Path
+from typing import List
 from experimaestro import config, param, pathoption
 import onir
 from onir import util, spec, predictors, datasets
@@ -8,19 +10,29 @@ from onir.interfaces import trec, plaintext
 from onir.log import Logger
 from onir.rankers.trivial import Trivial
 from onir.util import Device, DEFAULT_DEVICE
+import experimaestro_ir.metrics as metrics
 
 @param('batch_size', default=64)
 @param('device', type=Device, default=DEFAULT_DEVICE)
 @param('preload', default=False)
-@param('run_threshold', default=0)
-@param('measures', default='map,ndcg,p@20,ndcg@20,mrr')
+@param('run_threshold', default=0, help="Maximum number of results (0 for not limit)")
 @param('source', default='run')
-@pathoption("basepath", "reranker")
 @config()
 class Reranker(predictors.BasePredictor):
     name = None
 
-    def initialize(self, random, ranker, dataset):
+    def initialize(self, base_path: Path, measures: List[str], random, ranker, dataset):
+        """Initialize a re-ranker
+
+        Args:
+            base_path: The base_path where file will be cached
+            measures: List of measures to evaluate when running the re-ranker
+            random (Random): Random number generator
+            ranker (Ranker): The underlying ranker
+            dataset (Dataset): The dataset on which to operate
+        """
+        self.base_path = base_path
+        self.measures = measures
         self.ranker = ranker
         self.input_spec = self.ranker.input_spec()
         self.logger = Logger(self.__class__.__name__)
@@ -121,8 +133,7 @@ class PredictorContext:
     def __call__(self, ctxt):
         cached = True
         epoch = ctxt['epoch']
-        # FIXME: base_path should not be set here
-        base_path = str(self.pred.basepath)
+        base_path = str(self.pred.base_path)
         os.makedirs(os.path.join(base_path, 'runs'), exist_ok=True)
         run_path = os.path.join(base_path, 'runs', f'{epoch}.run')
         if os.path.exists(run_path):
@@ -135,7 +146,7 @@ class PredictorContext:
                 official_run = {}
             run = {}
             ranker = ctxt['ranker']().to(self.device)
-            this_qid = None
+            this_qid = None 
             these_docs = {}
             with util.finialized_file(run_path, 'wt') as f:
                 for qid, did, score in self.pred.iter_scores(ranker, self.datasource, self.device):
@@ -159,7 +170,7 @@ class PredictorContext:
             'cached': cached
         }
 
-        result['metrics'] = {m: None for m in self.pred.measures.split(',') if m}
+        result['metrics'] = {m: None for m in self.pred.measures}
         result['metrics_by_query'] = {m: None for m in result['metrics']}
 
         missing_metrics = self.load_metrics(result)
@@ -168,9 +179,9 @@ class PredictorContext:
             measures = set(missing_metrics)
             result['cached'] = False
             qrels = self.pred.dataset.qrels()
-            calculated_metrics = onir.metrics.calc(qrels, run_path, measures)
+            calculated_metrics = metrics.calc(qrels, run_path, measures)
             result['metrics_by_query'].update(calculated_metrics)
-            result['metrics'].update(onir.metrics.mean(calculated_metrics))
+            result['metrics'].update(metrics.mean(calculated_metrics))
             self.write_missing_metrics(result, missing_metrics)
 
         try:

@@ -10,7 +10,7 @@ import threading
 import contextlib
 from pathlib import Path
 from functools import lru_cache
-from pytools import memoize_method
+from pytools import memoize_method, memoize
 import onir
 from onir.interfaces import trec
 from onir.interfaces.java import J
@@ -70,7 +70,7 @@ def pbar_bq_listener(pbar):
             return False
     return wrapped
 
-
+# FIXME: for a unique path, we should have a unique accessor
 class AnseriniIndex(indices.BaseIndex):
     """
     Interface to an Anserini index.
@@ -108,6 +108,7 @@ class AnseriniIndex(indices.BaseIndex):
                 'store_raw_docs': store_raw_docs,
                 'lang': lang,
             }
+            # FIXME: should not dump when using a read-only index
             self._dump_settings()
 
     def _dump_settings(self):
@@ -182,7 +183,6 @@ class AnseriniIndex(indices.BaseIndex):
         cs = self.collection_stats()
         return cs.sumTotalTermFreq() / cs.docCount()
 
-    @memoize_method
     def _get_index_utils(self):
         return J.A_IndexUtils(self._path)
 

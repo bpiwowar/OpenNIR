@@ -20,4 +20,4 @@ from onir import log
 
 logger = log.Logger('onir')
 
-from onir import util, metrics, datasets, interfaces, rankers, config, trainers, predictors, vocab
+from onir import util, datasets, interfaces, rankers, config, trainers, predictors, vocab

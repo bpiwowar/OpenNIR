@@ -101,14 +101,14 @@ class Dataset(datasets.Dataset):
             return self.run_cache[key]
 
         run_path.mkdir(parents=True, exist_ok=True)
-        run_path = str(run_path / f"{rankfn}.{ranktopk}.run")
+        run_path = run_path / f"{rankfn}.{ranktopk}.run"
         run_path_cache = f'{run_path}.{fmt}.cache'
 
         result = self._load_run_base_fscached(run_path_cache, rankfn, ranktopk, fscache)
         if result is None:
             result = self._load_run_base_direct(str(run_path), rankfn, ranktopk, fmt)
         if result is None:
-            result = self._load_run_base_infer(str(self.run_path.parent), rankfn, ranktopk, fmt)
+            result = self._load_run_base_infer(str(run_path.parent), rankfn, ranktopk, fmt)
         if result is None:
             result = self._load_run_base_query(index, rankfn, ranktopk, str(run_path), fmt)
 

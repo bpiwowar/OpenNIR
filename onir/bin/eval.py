@@ -2,7 +2,7 @@ import os
 os.environ['ONIR_IGNORE_ARGV'] = 'true'
 import json
 import argparse
-from onir import metrics
+from experimaestro_ir import metrics
 
 
 def main():

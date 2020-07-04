@@ -24,6 +24,7 @@ import onir.trainers.base
 @param("trainer", type=Trainer)
 @param("random", type=Random)
 
+@pathoption("predictor_path", "predictor")
 @pathoption("valtest_path", "val_test.jsonl")
 @task()
 class Learner:
@@ -36,7 +37,7 @@ class Learner:
         self.logger = log.Logger(self.__class__.__name__)
         self.ranker.initialize(self.random.state)
         self.trainer.initialize(self.random.state, self.ranker, self.train_dataset)
-        self.valid_pred.initialize(self.random.state, self.ranker, self.val_dataset)
+        self.valid_pred.initialize(self.predictor_path, [self.val_metric], self.random.state, self.ranker, self.val_dataset)
         self.train_dataset.initialize(self.ranker.vocab)
         self.val_dataset.initialize(self.ranker.vocab)
 
