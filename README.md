@@ -83,17 +83,17 @@ Available in the `onir.rankers` module
  - (*planned*) Vanilla BERT `config/vanilla_bert` [paper](https://arxiv.org/abs/1810.04805)
  - CEDR models `onir.rankers.cedr_drmm.CedrDrmm` [paper](https://arxiv.org/abs/1810.04805)
  - (*planned*) MatchZoo models [source](https://github.com/NTMC-Community/MatchZoo)
-   - (*planned*) MatchZoo's KNRM 
-   - (*planned*) MatchZoo's ConvKNRM 
+ - (*planned*) MatchZoo's KNRM 
+ - (*planned*) MatchZoo's ConvKNRM 
 
 ### Datasets
 
  - TREC Robust 2004
- - MS-MARCO `config/msmarco`
- - ANTIQUE `config/antique`
- - TREC CAR `config/car`
- - New York Times `config/nyt` -- for [content-based weak supervision](https://arxiv.org/abs/1707.00189)
- - TREC Arabic, Mandarin, and Spanish `config/multiling/*` -- for [zero-shot multilingual transfer learning](https://arxiv.org/pdf/1912.13080.pdf) ([instructions](https://opennir.net/multilingual.html))
+ - (*planned*) MS-MARCO `config/msmarco`
+ - (*planned*) ANTIQUE `config/antique`
+ - (*planned*) TREC CAR `config/car`
+ - (*planned*) New York Times `config/nyt` -- for [content-based weak supervision](https://arxiv.org/abs/1707.00189)
+ - (*planned*) TREC Arabic, Mandarin, and Spanish `config/multiling/*` -- for [zero-shot multilingual transfer learning](https://arxiv.org/pdf/1912.13080.pdf) ([instructions](https://opennir.net/multilingual.html))
 
 ### Evaluation Metrics
 
@@ -123,4 +123,20 @@ look at acknowledgements of the original [OpenNIR](https://github.com/Georgetown
   booktitle = {{WSDM} 2020},
   year = {2020}
 }
+```
+
+If you have space, you can also cite mine:
+
+```bibtex
+@inproceedings{10.1145/3397271.3401410,
+author = {Piwowarski, Benjamin},
+title = {Experimaestro and Datamaestro: Experiment and Dataset Managers (for IR)},
+year = {2020},
+doi = {10.1145/3397271.3401410},
+booktitle = {Proceedings of the 43rd International ACM SIGIR Conference on Research and Development in Information Retrieval},
+location = {Virtual Event, China},
+series = {SIGIR ’20}
+}
+  
+
 ```
