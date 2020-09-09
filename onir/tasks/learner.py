@@ -101,7 +101,7 @@ class Learner:
                 epochs_since_imp = valid_ctxt['epoch'] - top_epoch
                 if self.early_stop > 0 and epochs_since_imp >= self.early_stop:
                     self.logger.warn('stopping after epoch {epoch} ({early_stop} epochs with no '
-                                     'improvement to {val_metric})'.format(**valid_ctxt, **self.config))
+                                     'improvement to {val_metric})'.format(**valid_ctxt, **self.__dict__))
                     break
 
             if train_ctxt['epoch'] >= self.max_epoch:
