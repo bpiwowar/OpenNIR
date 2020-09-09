@@ -4,7 +4,7 @@ from pathlib import Path
 
 from datamaestro import prepare_dataset
 from experimaestro.click import click, forwardoption
-from experimaestro import experiment
+from experimaestro import experiment, tag
 from onir import rankers
 from onir.datasets.robust import RobustDataset
 from onir.predictors.reranker import Reranker, Device
@@ -22,7 +22,9 @@ logging.basicConfig(level=logging.INFO)
 
 # --- Defines the experiment
 
+# Experimental settings
 @forwardoption.max_epoch(Learner)
+# Options
 @click.option("--debug", is_flag=True, help="Print debug information")
 @click.option("--gpu", is_flag=True, help="Use GPU")
 @click.option("--port", type=int, default=12345, help="Port for monitoring")
@@ -50,14 +52,14 @@ def cli(port, gpu, workdir, debug, max_epoch):
         predictor = Reranker(device=device)
         trainer = PointwiseTrainer(device=device)
         learner = Learner(trainer=trainer, random=random, ranker=ranker, valid_pred=predictor, 
-            train_dataset=robust.subset('trf1'), val_dataset=robust.subset('vaf1'), max_epoch=max_epoch)
+            train_dataset=robust.subset('trf1'), val_dataset=robust.subset('vaf1'), max_epoch=tag(max_epoch))
         model = learner.submit()
 
-        # Evaluate
+        # Evaluate the neural model
         test_set = robust.subset('f1')
         evaluate = Evaluate(dataset=test_set, model=model, predictor=predictor).submit()
 
-        # Evaluate with BM25
+        # Search and evaluate with BM25
         bm25_search = (
             SearchCollection(index=robust.index, topics=test_set.assessed_topics.topics, model=BM25())
             .tag("model", "bm25")
@@ -66,9 +68,11 @@ def cli(port, gpu, workdir, debug, max_epoch):
         bm25_eval = TrecEval(
             assessments=test_set.assessed_topics.assessments, run=bm25_search
         ).submit()
+
+        xp.wait()
     
-    print(f"Results for DRMM\n{evaluate.results.read_text()}\n")
-    print(f"Results for BM25\n{bm25_eval.results.read_text()}\n")
+        print(f"Results for DRMM\n{evaluate.results.read_text()}\n")
+        print(f"Results for BM25\n{bm25_eval.results.read_text()}\n")
 
 
 if __name__ == "__main__":

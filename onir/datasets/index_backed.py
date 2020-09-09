@@ -3,48 +3,79 @@ import functools
 import contextlib
 from glob import glob
 import pickle
-from experimaestro import param, config, cache, configmethod, pathoption
+from experimaestro import param, config, cache, configmethod, pathoption, progress
 from experimaestro_ir.anserini import IndexCollection
-from onir import datasets, util, log
+from onir import datasets, util, log, indices
 from onir.interfaces import trec
 from onir.datasets import AssessedTopics
+from onir.indices.sqlite import DocStore
+from experimaestro_ir.anserini import Index as AnseriniIndex
+from experimaestro import task, config
+
+def _init_indices_parallel(indices, doc_iter, force):
+    """Builds the indices
+
+    Args:
+        indices (List[onir.indices.BaseIndex]): The indices to build
+        doc_iter (Iterator[onir.indices.misc.RawDoc]): [description]
+        force (bool): Whether indices should be rebuilt
+    """
+    needs_docs = []
+    for index in indices:
+        if force or not index.built():
+            needs_docs.append(index)
+
+    if needs_docs:
+        with contextlib.ExitStack() as stack:
+            doc_iters = util.blocking_tee(doc_iter, len(needs_docs))
+            for idx, it in zip(needs_docs, doc_iters):
+                stack.enter_context(util.CtxtThread(functools.partial(idx.build, it)))
+
+def _iter_collection(index):
+    # Using the trick here from capreolus, pulling document content out of public index:
+    # <https://github.com/capreolus-ir/capreolus/blob/d6ae210b24c32ff817f615370a9af37b06d2da89/capreolus/collection/robust04.yaml#L15>
+    index = indices.AnseriniIndex(index.path)
+    total = index.num_docs()
+    logger = log.easy()
+    for ix, did in enumerate(logger.pbar(index.docids(), desc='documents')):
+        progress(ix/total)
+        raw_doc = index.get_raw(did)
+        yield indices.RawDoc(did, raw_doc)
+
+@param('index', type=AnseriniIndex, help="Index containing raw documents")
+@pathoption("path", "docstore")
+@task()
+class BuildDocStore(DocStore):
+    def execute(self):
+        idxs = [indices.SqliteDocstore(self.path)]
+        _init_indices_parallel(idxs, _iter_collection(self.index), True)
+ 
+@param('index', type=AnseriniIndex, help="Index containing raw documents")
+@pathoption("path", "index")
+@task()
+class Reindex(AnseriniIndex):
+    """Re-index without a stemmer"""
+    def execute(self):
+        idxs = [indices.AnseriniIndex(self.path, stemmer='none')]
+        _init_indices_parallel(idxs, _iter_collection(self.index), True)
 
 
-@config()
-class IndexBackedDataset():
-    def __init__(self):
-        self.logger = log.easy()
+# TODO: Run Reindex and BuildDocStore in parallel when @multitask is implemented in experimaestro
+# @param('index', type=AnseriniIndex, help="Index containing raw documents")
+# @multitask
+# class Prepare(IndexReader):
+#     def __outputs__(self):
+#         return [ Reindex(index=self.index), BuildDocStore(index=self.index) ]
 
-    def _init_indices_parallel(self, indices, doc_iter, force):
-        """Builds the indices
+#     def execute(self):
+#         idxs = []
+#         if self.docstore:
+#             idxs.append(self.docstore.idx())
+#         if self.reindex:
+#             idxs.append(self.reindex.idx())
+#         self._init_indices_parallel(idxs, self._init_iter_collection(), True)
 
-        Args:
-            indices (List[onir.indices.BaseIndex]): The indices to build
-            doc_iter (Iterator[onir.indices.misc.RawDoc]): [description]
-            force (bool): Whether indices should be rebuilt
-        """
-        needs_docs = []
-        for index in indices:
-            if force or not index.built():
-                needs_docs.append(index)
 
-        if needs_docs:
-            with contextlib.ExitStack() as stack:
-                doc_iters = util.blocking_tee(doc_iter, len(needs_docs))
-                for idx, it in zip(needs_docs, doc_iters):
-                    stack.enter_context(util.CtxtThread(functools.partial(idx.build, it)))
-
-    def _load_queries_base(self, subset):
-        raise NotImplementedError()
-
-    def _get_index(self, record):
-        raise NotImplementedError
-
-    def _get_docstore(self):
-        raise NotImplementedError
-
-    def _get_index_for_batchsearch(self):
-        raise NotImplementedError
 
 
 @param('rankfn', default='bm25')
@@ -54,7 +85,7 @@ class IndexBackedDataset():
 @config()
 class Dataset(datasets.Dataset):
     """
-    Dataset base class for using an index as the source of the data.
+    Dataset base class for using an (Anserini) index as the source of the data.
     """
 
     def __init__(self):

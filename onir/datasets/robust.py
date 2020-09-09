@@ -4,9 +4,9 @@ from functools import lru_cache
 from experimaestro import task, config, param, pathoption, progress, configmethod, Choices, cache
 from experimaestro_ir.anserini import Index as AnseriniIndex
 from datamaestro_text.data.ir.trec import TrecAdhocAssessments, TrecAdhocTopics
-from onir import datasets, util, indices, vocab, log
-from .index_backed import IndexBackedDataset, Dataset
+from onir import datasets
 from onir.indices.sqlite import DocStore
+from .index_backed import Dataset, BuildDocStore, Reindex
 from onir.interfaces import trec, plaintext
 from datamaestro import prepare_dataset
 
@@ -91,53 +91,3 @@ class RobustDatasetGenerator:
 
         topics = RobustAssessedTopics(topics=self.topics, assessments=self.qrels, fold=fold)
         return RobustDataset(index_stem=self.index_stem, index=self.index, docstore=self.docstore, assessed_topics=topics, **kwargs)
-
-# --- Move what's below somewhere else
-
-# FIXME: move this elsewhere
-class IndexReader(IndexBackedDataset):
-    def _init_iter_collection(self):
-        # Using the trick here from capreolus, pulling document content out of public index:
-        # <https://github.com/capreolus-ir/capreolus/blob/d6ae210b24c32ff817f615370a9af37b06d2da89/capreolus/collection/robust04.yaml#L15>
-        index = indices.AnseriniIndex(self.index.path)
-        total = index.num_docs()
-        logger = log.easy()
-        for ix, did in enumerate(logger.pbar(index.docids(), desc='documents')):
-            progress(ix/total)
-            raw_doc = index.get_raw(did)
-            yield indices.RawDoc(did, raw_doc)
-
-# FIXME: move this elsewhere
-@param('index', type=AnseriniIndex, help="Index containing raw documents")
-@pathoption("path", "docstore")
-@task()
-class BuildDocStore(DocStore, IndexReader):
-    def execute(self):
-        idxs = [indices.SqliteDocstore(self.path)]
-        self._init_indices_parallel(idxs, self._init_iter_collection(), True)
- 
-# FIXME: move this elsewhere
-@param('index', type=AnseriniIndex, help="Index containing raw documents")
-@pathoption("path", "index")
-@task()
-class Reindex(AnseriniIndex, IndexReader):
-    def execute(self):
-        idxs = [indices.AnseriniIndex(self.path, stemmer='none')]
-        super()._init_indices_parallel(idxs, self._init_iter_collection(), True)
-
-# # TODO: Run Reindex and BuildDocStore in parallel
-# @param('index', type=AnseriniIndex, help="Index containing raw documents")
-# @multitask
-# class Prepare(IndexReader):
-#     def __outputs__(self):
-#         return [ Reindex(index=self.index), BuildDocStore(index=self.index) ]
-
-#     def execute(self):
-#         idxs = []
-#         if self.docstore:
-#             idxs.append(self.docstore.idx())
-#         if self.reindex:
-#             idxs.append(self.reindex.idx())
-#         self._init_indices_parallel(idxs, self._init_iter_collection(), True)
-
-

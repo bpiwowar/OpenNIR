@@ -51,10 +51,10 @@ class Evaluate:
             fp.write('{:25s}{:8s}{:.4f}\n'.format(measure, scope, value))
 
         with open(self.measures, "wt") as fp:
-            for measure, value in test_ctxt["metrics"].items():
+            for measure, value in sorted(test_ctxt["metrics"].items()):
                 print_line(fp, measure, 'all', value)
 
         with open(self.detailed, "wt") as fp:        
-            for measure, value in test_ctxt["metrics_by_query"].items():
+            for measure, value in sorted(test_ctxt["metrics_by_query"].items()):
                 for query, value in value.items():
                     print_line(fp, measure, query, value)
