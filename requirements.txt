@@ -22,7 +22,7 @@ nltk
 # interfacing
 git+https://github.com/TREMA-UNH/trec-car-tools.git#subdirectory=python3&egg=trec_car_tools
 sqlitedict
-git+https://github.com/cvangysel/pytrec_eval.git#egg=pytrec_eval
+trec-eval>=0.5
 gensim
 Cython
 pyjnius
@@ -32,4 +32,4 @@ pytools
 cached-property
 
 # Experimaestro-ir
-git+https://github.com/bpiwowar/experimaestro-ir.git#egg=experimaestro_ir
+experimaestro-ir>=0.1
