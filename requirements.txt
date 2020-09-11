@@ -23,7 +23,7 @@ nltk
 # TODO: put back when using it
 # git+https://github.com/TREMA-UNH/trec-car-tools.git#subdirectory=python3&egg=trec_car_tools
 sqlitedict
-trec-eval>=0.5
+pytrec_eval>=0.5
 gensim
 Cython
 pyjnius
