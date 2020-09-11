@@ -46,6 +46,7 @@ def _iter_collection(index):
 @pathoption("path", "docstore")
 @task()
 class BuildDocStore(DocStore):
+    """Build doc-store from index"""
     def execute(self):
         idxs = [indices.SqliteDocstore(self.path)]
         _init_indices_parallel(idxs, _iter_collection(self.index), True)
@@ -54,7 +55,7 @@ class BuildDocStore(DocStore):
 @pathoption("path", "index")
 @task()
 class Reindex(AnseriniIndex):
-    """Re-index without a stemmer"""
+    """Build index (not stemmed) from index"""
     def execute(self):
         idxs = [indices.AnseriniIndex(self.path, stemmer='none')]
         _init_indices_parallel(idxs, _iter_collection(self.index), True)

@@ -1,12 +1,12 @@
 import os
 from pytools import memoize_method
 from functools import lru_cache
-from experimaestro import task, config, param, pathoption, progress, configmethod, Choices, cache
+from experimaestro import task, config, param, pathoption, configmethod, Choices, cache
 from experimaestro_ir.anserini import Index as AnseriniIndex
 from datamaestro_text.data.ir.trec import TrecAdhocAssessments, TrecAdhocTopics
-from onir import datasets
+from onir import datasets, indices
 from onir.indices.sqlite import DocStore
-from .index_backed import Dataset, BuildDocStore, Reindex
+from onir.datasets.index_backed import Dataset, BuildDocStore, Reindex
 from onir.interfaces import trec, plaintext
 from datamaestro import prepare_dataset
 
@@ -37,6 +37,8 @@ class RobustAssessedTopics(datasets.TrecAssessedTopics):
 @param('docstore', type=DocStore)
 @config()
 class RobustDataset(Dataset):
+    SUBSETS = FOLDS
+    
     """Prepares the Robust dataset from a pre-computed index"""
     def __init__(self):
         super().__init__()
@@ -44,7 +46,6 @@ class RobustDataset(Dataset):
         self.index_stem = indices.AnseriniIndex(self.index_stem.path, name="stemindex")
         self.doc_store = indices.SqliteDocstore(self.docstore.path)
 
-    @configmethod
     @staticmethod
     def prepare(**kwargs):
         return RobustDatasetGenerator()
@@ -58,16 +59,15 @@ class RobustDataset(Dataset):
     def _get_index_for_batchsearch(self):
         return self.index_stem
 
-    @memoize_method
-    def _load_queries_base(self):
-        return self._load_topics()
-
     def qrels(self, fmt='dict'):
         return self._load_qrels(fmt)
 
     @memoize_method
     def _load_qrels(self, fmt):
         return trec.read_qrels_fmt(str(self.assessed_topics.qrels_path()), fmt)
+
+    def _load_queries_base(self):
+        return self._load_topics()
 
     @memoize_method
     def _load_topics(self):
@@ -82,10 +82,12 @@ class RobustDatasetGenerator:
         self.index_stem = prepare_dataset("ca.uwaterloo.jimmylin.anserini.robust04")
         self.topics = prepare_dataset("gov.nist.trec.adhoc.robust.2004.topics")
         self.qrels = prepare_dataset("gov.nist.trec.adhoc.robust.2004.qrels")
+
+        # FIXME: parallelize (when experimaestro supports this)
         self.docstore = BuildDocStore(index=self.index_stem).submit()
         self.index = Reindex(index=self.index_stem).submit()
 
-    def subset(self, fold: str, **kwargs):
+    def __call__(self, fold: str, **kwargs):
         """Returns dataset with a specific query fold
         """
 

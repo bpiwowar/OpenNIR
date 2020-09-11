@@ -11,6 +11,12 @@ class AssessedTopics():
 @param("assessments")
 @config()
 class TrecAssessedTopics(AssessedTopics):
+    """Asssessed topics - supposes that files are following the MS Marco format:
+    
+    - assessments are in the standard TREC format
+    
+    """
+
     @cache("qrels.tsv")
     def qrels_path(self, fold_qrels_file):
         if not fold_qrels_file.is_file():
