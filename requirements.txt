@@ -33,4 +33,4 @@ pytools
 cached-property
 
 # Experimaestro-ir
-experimaestro-ir>=0.1
+experimaestro-ir>=0.1.1

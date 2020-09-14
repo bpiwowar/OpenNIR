@@ -46,6 +46,7 @@ class RobustDataset(Dataset):
         self.index_stem = indices.AnseriniIndex(self.index_stem.path, name="stemindex")
         self.doc_store = indices.SqliteDocstore(self.docstore.path)
 
+    @configmethod
     @staticmethod
     def prepare(**kwargs):
         return RobustDatasetGenerator()
