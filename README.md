@@ -7,8 +7,13 @@ This is an adaptation of [OpenNIR](https://github.com/Georgetown-IR-Lab/OpenNIR)
 
 ## Quick start
 
-This is an example for training 
+Install OpenNIR (XPM version) with
 
+```python3
+pip install OpenNIR-XPM
+```
+
+and use this file for training (other examples are available on github)
 ```python
 import logging
 import os
@@ -44,27 +49,31 @@ def cli(port, workdir, debug, max_epoch):
     with experiment(workdir, "drmm", port=port) as xp:
         random = Random()
         xp.setenv("JAVA_HOME", os.environ["JAVA_HOME"])
-        
+
         # Prepare the collection
         wordembs = prepare_dataset("edu.stanford.glove.6b.50")        
         vocab = WordvecUnkVocab(data=wordembs, random=random)
-        robust = RobustDataset.prepare().submit()
+        robust = RobustDataset.prepare()
 
         # Train with OpenNIR DRMM model
         ranker = Drmm(vocab=vocab).tag("ranker", "drmm")
         predictor = Reranker()
         trainer = PointwiseTrainer()
         learner = Learner(trainer=trainer, random=random, ranker=ranker, valid_pred=predictor, 
-            train_dataset=robust.subset('trf1'), val_dataset=robust.subset('vaf1'), max_epoch=max_epoch)
+            train_dataset=robust('trf1'), val_dataset=robust('vaf1'), max_epoch=max_epoch)
         model = learner.submit()
 
         # Evaluate
-        Evaluate(dataset=robust.subset('f1'), model=model, predictor=predictor).submit()
+        Evaluate(dataset=robust('f1'), model=model, predictor=predictor).submit()
 
 
 if __name__ == "__main__":
     cli()
+```
 
+Start with (using the folder drmm-test to store the ouputs)
+```sh
+python test.py --port 12345 drmm-test
 ```
 
 ## Features
