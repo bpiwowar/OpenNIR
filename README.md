@@ -1,3 +1,5 @@
+[![PyPI version](https://badge.fury.io/py/OpenNIR-XPM.svg)](https://badge.fury.io/py/OpenNIR-XPM)
+
 # OpenNIR (experimaestro version)
 
 OpenNIR-xpm is an end-to-end neural ad-hoc ranking pipeline.
