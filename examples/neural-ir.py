@@ -66,9 +66,23 @@ def msmarco(info):
 def robust(info):
     """Use the TREC Robust dataset"""
     from onir.datasets.robust import RobustDataset
-    ds = MsmarcoDataset.prepare()
+    ds = RobustDataset.prepare()
     return ds("trf1"), ds("vaf1"), ds("f1")
 
+# ---- Vocabulary
+
+def vocab(info):
+    return register(method, lambda info, vocab: info.vocab = vocab)
+
+@vocab
+def glove(info):
+    wordembs = prepare_dataset("edu.stanford.glove.6b.50")        
+    return WordvecUnkVocab(data=wordembs, random=random)
+
+@vocab
+def bertvocab(info):
+    wordembs = prepare_dataset("edu.stanford.glove.6b.50")        
+    return WordvecUnkVocab(data=wordembs, random=random)
 
 # ---- Models
 
@@ -80,6 +94,11 @@ def drmm(info):
     """Use the DRMM model"""
     return rankers.Drmm(vocab=info.vocab).tag("model", "drmm")
 
+@model
+def vanilla_transformer(info):
+    """Use the Vanilla BERT model"""
+    from onir.rankers.vanilla_transformer import VanillaTransformer
+    return VanillaTransformer(vocab=info.vocab).tag("model", "vanilla-transformer")
 
 # --- Run the experiment
 

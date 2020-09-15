@@ -5,7 +5,7 @@ from torch import nn
 
 @param("qlen", default=20)
 @param("dlen", default=2000)
-@param("add_runscore", default=False)
+@param("add_runscore", default=False, help="Whether the base predictor score should be added to the model score")
 @param("vocab", type=vocab.Vocab)
 @config()
 class Ranker(nn.Module):

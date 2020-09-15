@@ -34,3 +34,4 @@ cached-property
 
 # Experimaestro-ir
 experimaestro-ir>=0.1.1
+experimaestro>=0.7.4

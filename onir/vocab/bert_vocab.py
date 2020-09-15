@@ -19,6 +19,8 @@ from experimaestro import param, config, Choices
 @param('encoding', default='joint', checker=Choices(['joint', 'sep']))
 @config()
 class BertVocab(vocab.Vocab):
+    __has_clstoken__ = True
+
     def initialize(self):
         super().initialize()
         bert_model = bert_models.get_model(self.bert_base, self.logger)
@@ -56,6 +58,7 @@ class BertVocab(vocab.Vocab):
 
 
 class BaseBertEncoder(vocab.VocabEncoder):
+    __has_clstoken__ = True
 
     def __init__(self, vocabulary):
         super().__init__(vocabulary)

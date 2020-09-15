@@ -42,24 +42,6 @@ class PairwiseTrainer(trainers.Trainer):
         self.train_iter = util.background(self.iter_batches(self.train_iter_core))
         self.numneg = config['num_neg']
 
-    def path_segment(self):
-        path = super().path_segment()
-        pos = 'pos-{pos_source}-{sampling}'.format(**self.config)
-        if self.pos_minrel != 1:
-            pos += '-minrel{pos_minrel}'.format(**self.config)
-        neg = 'neg-{neg_source}'.format(**self.config)
-        if self.unjudged_rel != 0:
-            neg += '-unjudged{unjudged_rel}'.format(**self.config)
-        if self.num_neg != 1:
-            neg += '-numneg{num_neg}'.format(**self.config)
-        loss = self.lossfn
-        if loss == 'hinge':
-            loss += '-{margin}'.format(**self.config)
-        result = 'pairwise_{path}_{loss}_{pos}_{neg}'.format(**self.config, loss=loss, pos=pos, neg=neg, path=path)
-        if self.gpu and not self.gpu_determ:
-            result += '_nondet'
-        return result
-
     def iter_batches(self, it):
         while True: # breaks on StopIteration
             input_data = {}

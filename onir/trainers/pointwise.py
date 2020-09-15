@@ -23,16 +23,6 @@ class PointwiseTrainer(trainers.Trainer):
                                                     inf=True)
         self.train_iter = self.iter_batches(self.train_iter_core)
 
-    def path_segment(self):
-        path = super().path_segment()
-        result = 'pointwise_{path}_{lossfn}'.format(**self.config, path=path)
-        if self.source != 'qrels':
-            result += '_' + self.source
-        if self.minrel != -999:
-            result += '_minrel-{minrel}'.format(**self.config)
-        if self.gpu and not self.gpu_determ:
-            result += '_nondet'
-        return result
 
     def iter_batches(self, it):
         while True: # breaks on StopIteration

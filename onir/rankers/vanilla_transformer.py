@@ -1,9 +1,11 @@
 import torch
 import torch.nn.functional as F
-from onir import rankers
+from onir import rankers, log
+from experimaestro import param, config, Choices
 
-
-@rankers.register('vanilla_transformer')
+@param("combine", default="linear", checker=Choices(["linear", "probe"]))
+@param('outputs', default=1, help="Number of output for the classifier (for linear only)")
+@config()
 class VanillaTransformer(rankers.Ranker):
     """
     Implementation of the Vanilla BERT model from:
@@ -11,50 +13,32 @@ class VanillaTransformer(rankers.Ranker):
       > Embeddings for Document Ranking. In SIGIR.
     Should be used with a transformer vocab, e.g., BertVocab.
     """
-
-    @staticmethod
-    def default_config():
-        result = rankers.Ranker.default_config()
-        result.update({
-            'combine': 'linear', # one of linear, prob
-            'outputs': 1,
-        })
-        return result
-
-    def __init__(self, vocab, config, logger, random):
-        super().__init__(config, random)
-        self.logger = logger
-        self.vocab = vocab
-        self.encoder = vocab.encoder()
-        assert 'cls' in self.encoder.enc_spec()['joint_fields'] or self._cls_by_query_tok(), \
-               "VanillaBert must be used with a vocab that supports CLS encoding (e.g., BertVocab)"
-        if self.encoder.static():
-            logger.warn("It's usually bad to use VanillaBert with non-trainable embeddings. "
-                        "Consider setting `vocab.train=True`")
+    def initialize(self, random):
+        super().initialize(random)
+        self.logger = log.easy()
+        self.encoder = self.vocab.encoder()
         self.dropout = torch.nn.Dropout(0.1) # self.encoder.bert.config.hidden_dropout_prob
         if self.combine == 'linear':
             self.ranker = torch.nn.Linear(self.encoder.dim(), self.outputs)
         elif self.combine in ('prob', 'logprob'):
+            assert self.outputs == 1
             self.ranker = torch.nn.Linear(self.encoder.dim(), 2)
         else:
-            raise ValueError('unsupported combine={combine}'.format(**self.config))
+            raise ValueError(f'unsupported combine={self.combine}')
+
+    def __validate__(self):
+        """Validate the parameters (called by experimaestro)"""
+        assert self.vocab.__has_clstoken__, \
+               "VanillaBert must be used with a vocab that supports CLS encoding (e.g., BertVocab)"
+        if self.vocab.encoder.static():
+            logger.warn("It's usually bad to use VanillaBert with non-trainable embeddings. "
+                        "Consider setting `vocab.train=True`")
 
     def input_spec(self):
         result = super().input_spec()
         result['fields'].update({'query_tok', 'query_len', 'doc_tok', 'doc_len'})
         result['qlen_mode'] = 'max'
         result['dlen_mode'] = 'max'
-        return result
-
-    def path_segment(self):
-        result = '{name}_{qlen}q_{dlen}d'.format(name=self.name, **self.config)
-        if self.combine == 'linear':
-            if self.outputs > 1:
-                result += '_{combine}-{outputs}'.format(**self.config)
-        else:
-            result += '_{combine}'.format(**self.config)
-        if self.add_runscore:
-            result += '_addrun'
         return result
 
     def _forward(self, **inputs):

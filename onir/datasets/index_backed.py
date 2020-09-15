@@ -65,7 +65,7 @@ class Reindex(AnseriniIndex):
 # @param('index', type=AnseriniIndex, help="Index containing raw documents")
 # @multitask
 # class Prepare(IndexReader):
-#     def __outputs__(self):
+#     def __outputs__(self) -> Tuple[Reindex, BuildDocStore]:
 #         return [ Reindex(index=self.index), BuildDocStore(index=self.index) ]
 
 #     def execute(self):
