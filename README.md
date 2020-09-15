@@ -22,6 +22,9 @@ from pathlib import Path
 from datamaestro import prepare_dataset
 from experimaestro.click import click, forwardoption
 from experimaestro import experiment
+from experimaestro_ir.models import BM25
+from experimaestro_ir.anserini import SearchCollection
+from experimaestro_ir.evaluation import TrecEval
 from onir.datasets.robust import RobustDataset
 from onir.predictors.reranker import Reranker
 from onir.random import Random
@@ -54,17 +57,33 @@ def cli(port, workdir, debug, max_epoch):
         wordembs = prepare_dataset("edu.stanford.glove.6b.50")        
         vocab = WordvecUnkVocab(data=wordembs, random=random)
         robust = RobustDataset.prepare()
+        train, val, test = robust('trf1'), robust('vaf1'), robust('f1')
 
         # Train with OpenNIR DRMM model
         ranker = Drmm(vocab=vocab).tag("ranker", "drmm")
         predictor = Reranker()
         trainer = PointwiseTrainer()
         learner = Learner(trainer=trainer, random=random, ranker=ranker, valid_pred=predictor, 
-            train_dataset=robust('trf1'), val_dataset=robust('vaf1'), max_epoch=max_epoch)
+            train_dataset=train, val_dataset=val, max_epoch=max_epoch)
         model = learner.submit()
 
         # Evaluate
-        Evaluate(dataset=robust('f1'), model=model, predictor=predictor).submit()
+        evaluate = Evaluate(dataset=test, model=model, predictor=predictor).submit()
+
+        # Search and evaluate with BM25
+        bm25_search = (
+            SearchCollection(index=test.index, topics=test.assessed_topics.topics, model=BM25())
+            .tag("model", "bm25")
+            .submit()
+        )
+        bm25_eval = TrecEval(
+            assessments=test.assessed_topics.assessments, run=bm25_search
+        ).submit()
+
+        xp.wait()
+    
+        print(f"Results for DRMM\n{evaluate.results.read_text()}\n")
+        print(f"Results for BM25\n{evaluate.results.read_text()}\n")
 
 
 if __name__ == "__main__":
