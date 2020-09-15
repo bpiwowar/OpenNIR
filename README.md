@@ -85,7 +85,7 @@ def cli(port, workdir, debug, max_epoch):
         xp.wait()
     
         print(f"Results for DRMM\n{evaluate.results.read_text()}\n")
-        print(f"Results for BM25\n{evaluate.results.read_text()}\n")
+        print(f"Results for BM25\n{bm25_eval.results.read_text()}\n")
 
 
 if __name__ == "__main__":
@@ -104,13 +104,13 @@ The features below are from [OpenNIR](http://github.com/)
 
 Available in the `onir.rankers` module
 
- - DRMM `onir.rankers.drmm.Drmm` [paper](https://arxiv.org/abs/1711.08611)
+ - DRMM `onir.rankers.drmm.Drmm` (since 0.1.2) [paper](https://arxiv.org/abs/1711.08611)
  - (*planned*) Duet (local model) [paper](https://arxiv.org/abs/1610.08136)
  - (*planned*) MatchPyramid  [paper](https://arxiv.org/abs/1606.04648)
  - (*planned*) KNRM [paper](https://arxiv.org/abs/1706.06613)
  - (*planned*) PACRR  [paper](https://arxiv.org/abs/1704.03940)
  - (*planned*) ConvKNRM  [paper](https://www.semanticscholar.org/paper/432b36c1bec275c2778c66f9897f9e02f7d8b579)
- - (*planned*) Vanilla BERT `config/vanilla_bert` [paper](https://arxiv.org/abs/1810.04805)
+ - (*planned*) Vanilla BERT  [paper](https://arxiv.org/abs/1810.04805)
  - CEDR models `onir.rankers.cedr_drmm.CedrDrmm` [paper](https://arxiv.org/abs/1810.04805)
  - (*planned*) MatchZoo models [source](https://github.com/NTMC-Community/MatchZoo)
  - (*planned*) MatchZoo's KNRM 
@@ -118,12 +118,12 @@ Available in the `onir.rankers` module
 
 ### Datasets
 
- - TREC Robust 2004
- - (*planned*) MS-MARCO `config/msmarco`
- - (*planned*) ANTIQUE `config/antique`
- - (*planned*) TREC CAR `config/car`
- - (*planned*) New York Times `config/nyt` -- for [content-based weak supervision](https://arxiv.org/abs/1707.00189)
- - (*planned*) TREC Arabic, Mandarin, and Spanish `config/multiling/*` -- for [zero-shot multilingual transfer learning](https://arxiv.org/pdf/1912.13080.pdf) ([instructions](https://opennir.net/multilingual.html))
+ - TREC Robust 2004 (since 0.1.2)
+ - MS-MARCO (since 0.1.2)
+ - (*planned*) ANTIQUE 
+ - (*planned*) TREC CAR 
+ - (*planned*) New York Times  -- for [content-based weak supervision](https://arxiv.org/abs/1707.00189)
+ - (*planned*) TREC Arabic, Mandarin, and Spanish -- for [zero-shot multilingual transfer learning](https://arxiv.org/pdf/1912.13080.pdf) ([instructions](https://opennir.net/multilingual.html))
 
 ### Evaluation Metrics
 
