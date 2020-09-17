@@ -15,8 +15,8 @@ from experimaestro import param, config, Choices
 @param('bert_weights', default='')
 @param('layer', default=-1, help="Layer to use, or -1 for all")
 @param('last_layer', default=False)
-@param('train', default=False)
-@param('encoding', default='joint', checker=Choices(['joint', 'sep']))
+@param('train', default=False, help="Whether BERT parameters should be trained")
+@param('encoding', default='joint', checker=Choices(['joint', 'sep']), help="Type of BERT encoding")
 @config()
 class BertVocab(vocab.Vocab):
     __has_clstoken__ = True
@@ -144,7 +144,6 @@ class SepBertEncoder(BaseBertEncoder):
             'joint_fields': ['query', 'doc', 'cls_query', 'cls_doc']
         })
         return result
-
 
 class JointBertEncoder(BaseBertEncoder):
 

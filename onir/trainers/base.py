@@ -9,7 +9,7 @@ from onir.log import Logger
 
 @param('batch_size', default=16)
 @param('batches_per_epoch', default=32)
-@param('grad_acc_batch', default=0)
+@option('grad_acc_batch', default=0, help="With memory issues, this parameter can be used to give the size of a micro-batch")
 @param('optimizer', default='adam')
 @param('lr', default=0.001)
 @param('gpu', default=True)

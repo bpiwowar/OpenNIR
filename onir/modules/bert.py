@@ -37,7 +37,7 @@ class CustomBertModel(BertPreTrainedModel):
         self.embeddings = BertEmbeddings(config)
         self.encoder = BertEncoder(config)
         self.cls = BertPreTrainingHeads(config)
-        self.apply(self.init_weights)
+        self.apply(self._init_weights)
 
     def forward(self, input_ids, token_type_ids, attention_mask):
         """

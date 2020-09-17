@@ -110,7 +110,7 @@ Available in the `onir.rankers` module
  - (*planned*) KNRM [paper](https://arxiv.org/abs/1706.06613)
  - (*planned*) PACRR  [paper](https://arxiv.org/abs/1704.03940)
  - (*planned*) ConvKNRM  [paper](https://www.semanticscholar.org/paper/432b36c1bec275c2778c66f9897f9e02f7d8b579)
- - (*planned*) Vanilla BERT  [paper](https://arxiv.org/abs/1810.04805)
+ - (since 0.1.4) Vanilla BERT [paper](https://arxiv.org/abs/1810.04805)
  - CEDR models `onir.rankers.cedr_drmm.CedrDrmm` [paper](https://arxiv.org/abs/1810.04805)
  - (*planned*) MatchZoo models [source](https://github.com/NTMC-Community/MatchZoo)
  - (*planned*) MatchZoo's KNRM 
@@ -140,6 +140,7 @@ Available in the `onir.rankers` module
 
  - (**planned**) Binary term matching `vocab=binary` (i.e., changes interaction matrix from cosine similarity to to binary indicators)
  - Pretrained word vectors. Find the list with `datamaestro search tag:"word embeddings"`
+ - BERT-based encoders
 
 ## Citing OpenNIR
 
@@ -152,8 +153,7 @@ look at acknowledgements of the original [OpenNIR](https://github.com/Georgetown
   title = {{OpenNIR}: A Complete Neural Ad-Hoc Ranking Pipeline},
   booktitle = {{WSDM} 2020},
   year = {2020}
-}
-```
+}```
 
 If you have space, you can also cite mine:
 
@@ -166,7 +166,4 @@ doi = {10.1145/3397271.3401410},
 booktitle = {Proceedings of the 43rd International ACM SIGIR Conference on Research and Development in Information Retrieval},
 location = {Virtual Event, China},
 series = {SIGIR ’20}
-}
-  
-
-```
+}```

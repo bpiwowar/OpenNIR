@@ -30,9 +30,10 @@ class VanillaTransformer(rankers.Ranker):
         """Validate the parameters (called by experimaestro)"""
         assert self.vocab.__has_clstoken__, \
                "VanillaBert must be used with a vocab that supports CLS encoding (e.g., BertVocab)"
-        if self.vocab.encoder.static():
-            logger.warn("It's usually bad to use VanillaBert with non-trainable embeddings. "
-                        "Consider setting `vocab.train=True`")
+        # TODO: not really needed?
+        # if self.vocab.encoder.static():
+        #     logger.warn("It's usually bad to use VanillaBert with non-trainable embeddings. "
+        #                 "Consider setting `vocab.train=True`")
 
     def input_spec(self):
         result = super().input_spec()

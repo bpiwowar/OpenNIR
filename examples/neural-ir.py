@@ -12,7 +12,6 @@ from onir.random import Random
 from onir.tasks.learner import Learner
 from onir.tasks.evaluate import Evaluate
 from onir.trainers.pointwise import PointwiseTrainer
-from onir.vocab.wordvec_vocab import WordvecUnkVocab
 from experimaestro_ir.models import BM25
 from experimaestro_ir.anserini import SearchCollection
 from experimaestro_ir.evaluation import TrecEval
@@ -28,6 +27,8 @@ logging.basicConfig(level=logging.INFO)
 @forwardoption.max_epoch(Learner)
 @click.option("--debug", is_flag=True, help="Print debug information")
 @click.option("--gpu", is_flag=True, help="Use GPU")
+@click.option("--grad-acc-batch", type=int, default=64, help="Batch size for accumulating")
+@click.option("--batch-size", type=int, default=64, help="Batch size (validation and test)")
 @click.option("--port", type=int, default=12345, help="Port for monitoring")
 @click.argument("workdir", type=Path)
 @click.group(chain=True, invoke_without_command=False)
@@ -71,18 +72,20 @@ def robust(info):
 
 # ---- Vocabulary
 
-def vocab(info):
-    return register(method, lambda info, vocab: info.vocab = vocab)
+def vocab(method):
+    return register(method, lambda info, vocab: setattr(info, "vocab", vocab))
 
 @vocab
 def glove(info):
+    from onir.vocab.wordvec_vocab import WordvecUnkVocab
     wordembs = prepare_dataset("edu.stanford.glove.6b.50")        
-    return WordvecUnkVocab(data=wordembs, random=random)
+    return WordvecUnkVocab(data=wordembs, random=info.random)
 
+@click.option("--trainable", is_flag=True, help="Make the BERT encoder parameters trainable")
 @vocab
-def bertvocab(info):
-    wordembs = prepare_dataset("edu.stanford.glove.6b.50")        
-    return WordvecUnkVocab(data=wordembs, random=random)
+def bertencoder(info, trainable):
+    import onir.vocab.bert_vocab as bv
+    return bv.BertVocab(train=trainable)
 
 # ---- Models
 
@@ -103,7 +106,7 @@ def vanilla_transformer(info):
 # --- Run the experiment
 
 @cli.resultcallback()
-def process(processors, debug, gpu, port, workdir, max_epoch):
+def process(processors, debug, gpu, port, workdir, max_epoch, batch_size, grad_acc_batch):
     """Runs an experiment"""
     logging.info("Running pipeline")
 
@@ -119,9 +122,7 @@ def process(processors, debug, gpu, port, workdir, max_epoch):
         xpm.setenv("JAVA_HOME", os.environ["JAVA_HOME"])
 
         # Prepare the embeddings
-        wordembs = prepare_dataset("edu.stanford.glove.6b.50")        
         info.device = device
-        info.vocab = WordvecUnkVocab(data=wordembs, random=random)
 
         for processor in processors:
             processor(info)
@@ -144,8 +145,8 @@ def process(processors, debug, gpu, port, workdir, max_epoch):
             # Train and evaluate with each model
             for ranker in info.rankers:
                 # Train with OpenNIR DRMM model
-                predictor = Reranker(device=device)
-                trainer = PointwiseTrainer(device=device)
+                predictor = Reranker(device=device, batch_size=batch_size)
+                trainer = PointwiseTrainer(device=device, grad_acc_batch=grad_acc_batch)
                 learner = Learner(trainer=trainer, random=random, ranker=ranker, valid_pred=predictor, 
                     train_dataset=train, val_dataset=val, max_epoch=tag(max_epoch))
                 model = learner.submit()

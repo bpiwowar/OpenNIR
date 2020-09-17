@@ -3,7 +3,7 @@ import json
 import torch
 from pathlib import Path
 from typing import List
-from experimaestro import config, param, pathoption
+from experimaestro import config, option, param, pathoption
 import onir
 from onir import util, spec, predictors, datasets
 from onir.interfaces import trec, plaintext
@@ -12,7 +12,7 @@ from onir.rankers.trivial import Trivial
 from onir.util import Device, DEFAULT_DEVICE
 import experimaestro_ir.metrics as metrics
 
-@param('batch_size', default=64)
+@option('batch_size', default=64, help="Batch size used when reranking")
 @param('device', type=Device, default=DEFAULT_DEVICE)
 @param('preload', default=False)
 @param('run_threshold', default=0, help="Maximum number of results (0 for not limit)")
@@ -146,7 +146,7 @@ class PredictorContext:
                 official_run = {}
             run = {}
             ranker = ctxt['ranker']().to(self.device)
-            this_qid = None 
+            this_qid = None
             these_docs = {}
             with util.finialized_file(run_path, 'wt') as f:
                 for qid, did, score in self.pred.iter_scores(ranker, self.datasource, self.device):

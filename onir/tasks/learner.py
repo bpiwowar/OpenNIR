@@ -28,11 +28,7 @@ import onir.trainers.base
 @pathoption("valtest_path", "val_test.jsonl")
 @task()
 class Learner:
-    """A learner pipeline 
-    
-    Code taken from `DefaultPipeline`, moving the testing part into another 
-    task
-    """
+    """Learns a ranker"""
     def execute(self):
         self.logger = log.Logger(self.__class__.__name__)
         self.ranker.initialize(self.random.state)
