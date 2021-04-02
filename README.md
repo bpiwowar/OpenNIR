@@ -1,3 +1,7 @@
+**This project is discountinued, futher development is taking place directly in [experimaestro-ir](https://github.com/bpiwowar/experimaestro-ir/)**
+
+---
+
 [![PyPI version](https://badge.fury.io/py/OpenNIR-XPM.svg)](https://badge.fury.io/py/OpenNIR-XPM)
 
 # OpenNIR (experimaestro version)
